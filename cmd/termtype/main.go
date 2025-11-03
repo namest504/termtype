@@ -1,30 +1,66 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"termtype/internal/app"
 )
 
-func main() {
-	// 테마 플래그 설정
-	themeFlag := flag.String("theme", "log", "Theme to use (e.g., 'simple', 'log', 'matrix')")
-	listThemesFlag := flag.Bool("list-themes", false, "List available themes")
-	flag.Parse()
-
-	if *listThemesFlag {
-		fmt.Println("Available themes:")
-		for name := range app.Themes {
-			fmt.Printf("- %s\n", name)
-		}
-		return
+func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
+	for i, r := range []rune(text) {
+		s.SetContent(x+i, y, r, nil, style)
 	}
+}
 
+func selectTheme(s tcell.Screen) (app.Theme, error) {
+	var themes []string
+	for name := range app.Themes {
+		themes = append(themes, name)
+	}
+	sort.Strings(themes)
+
+	selectedIndex := 0
+
+	for {
+		s.Clear()
+		drawText(s, 2, 1, tcell.StyleDefault, "Select a theme:")
+
+		for i, name := range themes {
+			style := tcell.StyleDefault
+			if i == selectedIndex {
+				style = style.Reverse(true)
+			}
+			drawText(s, 4, 3+i, style, name)
+		}
+		s.Show()
+
+		ev := s.PollEvent()
+		switch ev := ev.(type) {
+		case *tcell.EventKey:
+			switch ev.Key() {
+			case tcell.KeyEscape, tcell.KeyCtrlC:
+				return nil, fmt.Errorf("theme selection cancelled")
+			case tcell.KeyUp:
+				if selectedIndex > 0 {
+					selectedIndex--
+				}
+			case tcell.KeyDown:
+				if selectedIndex < len(themes)-1 {
+					selectedIndex++
+				}
+			case tcell.KeyEnter:
+				return app.Themes[themes[selectedIndex]], nil
+			}
+		}
+	}
+}
+
+func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// 화면 초기화
@@ -40,10 +76,12 @@ func main() {
 	s.EnablePaste()
 	s.Clear()
 
-	// 플래그에 따라 테마 선택
-	theme, ok := app.Themes[*themeFlag]
-	if !ok {
-		log.Fatalf("Invalid theme: %s. Check available themes.", *themeFlag)
+	// 테마 선택
+	theme, err := selectTheme(s)
+	if err != nil {
+		s.Fini()
+		fmt.Println(err)
+		return
 	}
 
 	// 게임 생성 및 실행
