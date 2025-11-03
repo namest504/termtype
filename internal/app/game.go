@@ -10,7 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-//go:embed configs/sentences.txt
+//go:embed ../../configs/sentences.txt
 var sentencesFile string
 
 // 게임 상태를 관리하는 구조체
