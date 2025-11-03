@@ -40,6 +40,8 @@ func (t *HexTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
 	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
+	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
 
 	// 화면 전체에 임의의 헥스 데이터 그리기
 	for y := 0; y < h; y++ {
@@ -74,6 +76,18 @@ func (t *HexTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		s.SetContent(10+charIdx*3, lineIdx, []rune(hexStr)[0], nil, hexStyle)
 		s.SetContent(10+charIdx*3+1, lineIdx, []rune(hexStr)[1], nil, hexStyle)
 		s.SetContent(62+charIdx, lineIdx, []rune(asciiChar)[0], nil, asciiStyle)
+	}
+
+	// 사용자 입력 피드백
+	inputRunes := []rune(gs.userInput)
+	for i, r := range inputRunes {
+		lineIdx := state.StartLine + (i / 16)
+		charIdx := i % 16
+		style := correctStyle
+		if r != []rune(gs.targetSentence)[i] {
+			style = incorrectStyle
+		}
+		s.SetContent(62+charIdx, lineIdx, []rune(gs.targetSentence)[i], nil, style)
 	}
 
 	s.Show()
