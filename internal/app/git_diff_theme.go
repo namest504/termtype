@@ -1,11 +1,9 @@
 package app
 
 import (
-	"fmt"
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/mattn/go-runewidth"
 )
 
 func init() {
