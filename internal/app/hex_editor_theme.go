@@ -24,13 +24,13 @@ func (t *HexTheme) ResetState(gs *GameState) {
 	gs.CustomState = &HexThemeState{StartLine: -1} // StartLine을 -1로 초기화하여 첫 UpdateScreen에서 설정하도록 함
 }
 
-func (t *HexTheme) UpdateScreen(r *Renderer, gs *GameState) {
+func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	state, ok := gs.CustomState.(*HexThemeState)
 	if !ok {
 		return
 	}
-	r.Clear()
-	_, h := r.Size()
+	renderer.Clear()
+	_, h := renderer.Size()
 
 	// 화면 크기가 변경되었거나 처음 그릴 때 StartLine 설정
 	if state.StartLine == -1 {
@@ -56,9 +56,9 @@ func (t *HexTheme) UpdateScreen(r *Renderer, gs *GameState) {
 				asciiStr += "."
 			}
 		}
-		r.DrawText(0, y, addrStyle, offset)
-		r.DrawText(10, y, hexStyle, hexStr)
-		r.DrawText(62, y, asciiStyle, asciiStr)
+		renderer.DrawText(0, y, addrStyle, offset)
+		renderer.DrawText(10, y, hexStyle, hexStr)
+		renderer.DrawText(62, y, asciiStyle, asciiStr)
 	}
 
 	// 실제 타이핑할 문장을 중앙에 덮어쓰기
@@ -73,9 +73,9 @@ func (t *HexTheme) UpdateScreen(r *Renderer, gs *GameState) {
 			asciiChar = string(b)
 		}
 
-		r.SetContent(10+charIdx*3, lineIdx, []rune(hexStr)[0], hexStyle)
-		r.SetContent(10+charIdx*3+1, lineIdx, []rune(hexStr)[1], hexStyle)
-		r.SetContent(62+charIdx, lineIdx, []rune(asciiChar)[0], asciiStyle)
+		renderer.SetContent(10+charIdx*3, lineIdx, []rune(hexStr)[0], hexStyle)
+		renderer.SetContent(10+charIdx*3+1, lineIdx, []rune(hexStr)[1], hexStyle)
+		renderer.SetContent(62+charIdx, lineIdx, []rune(asciiChar)[0], asciiStyle)
 	}
 
 	// 사용자 입력 피드백
@@ -87,20 +87,20 @@ func (t *HexTheme) UpdateScreen(r *Renderer, gs *GameState) {
 		if r != []rune(gs.targetSentence)[i] {
 			style = incorrectStyle
 		}
-		r.SetContent(62+charIdx, lineIdx, []rune(gs.targetSentence)[i], style)
+		renderer.SetContent(62+charIdx, lineIdx, []rune(gs.targetSentence)[i], style)
 	}
 
 	if gs.isFinished {
-		r.HideCursor()
+		renderer.HideCursor()
 		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-		r.DrawText(0, h-1, tcell.StyleDefault, resultText)
+		renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
 	} else {
 		cursorLine := state.StartLine + (len(inputRunes) / 16)
 		cursorCol := len(inputRunes) % 16
-		r.ShowCursor(62+cursorCol, cursorLine)
+		renderer.ShowCursor(62+cursorCol, cursorLine)
 	}
 
-	r.Show()
+	renderer.Show()
 }
 
 func (t *HexTheme) OnTick(gs *GameState) {}

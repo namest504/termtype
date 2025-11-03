@@ -52,13 +52,13 @@ func (t *LogTheme) ResetState(gs *GameState) {
 	gs.targetSentence = sentence
 }
 
-func (t *LogTheme) UpdateScreen(r *Renderer, gs *GameState) {
+func (t *LogTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	logState, ok := gs.CustomState.(*LogThemeState)
 	if !ok {
 		return // 상태가 준비되지 않음
 	}
-	r.Clear()
-	_, h := r.Size()
+	renderer.Clear()
+	_, h := renderer.Size()
 
 	// 터미널 높이에 맞춰 동적으로 로그 줄 수 조절
 	numLogs := h - 4 // 상단 여백, 타겟 라인, 결과 라인 등을 위한 공간 확보
@@ -76,7 +76,7 @@ func (t *LogTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	// 배경 로그 그리기
 	logY := 0
 	for _, logLine := range logState.backgroundLogs {
-		r.DrawText(1, logY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logLine)
+		renderer.DrawText(1, logY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logLine)
 		logY++
 	}
 
@@ -88,7 +88,7 @@ func (t *LogTheme) UpdateScreen(r *Renderer, gs *GameState) {
 		} else if strings.Contains(logState.logPrefix, "[WARN]") {
 			prefixStyle = tcell.StyleDefault.Foreground(tcell.ColorYellow)
 		}
-		r.DrawText(1, targetY, prefixStyle, logState.logPrefix)
+		renderer.DrawText(1, targetY, prefixStyle, logState.logPrefix)
 
 		prefixWidth := runewidth.StringWidth(logState.logPrefix)
 		targetRunes := []rune(gs.targetSentence)
@@ -103,24 +103,24 @@ func (t *LogTheme) UpdateScreen(r *Renderer, gs *GameState) {
 					style = tcell.StyleDefault.Foreground(tcell.ColorRed)
 				}
 			}
-			r.SetContent(1+prefixWidth+i, targetY, r, style)
+			renderer.SetContent(1+prefixWidth+i, targetY, r, style)
 		}
 
 		cursorX := 1 + prefixWidth + runewidth.StringWidth(gs.userInput)
-		r.ShowCursor(cursorX, targetY)
+		renderer.ShowCursor(cursorX, targetY)
 
 	} else {
-		r.HideCursor()
-		r.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
+		renderer.HideCursor()
+		renderer.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
 
 		resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.wpm, gs.accuracy)
-		r.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
+		renderer.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
 
 		guideText := "Press Enter to continue or ESC to exit."
-		r.DrawText(1, targetY+3, tcell.StyleDefault, guideText)
+		renderer.DrawText(1, targetY+3, tcell.StyleDefault, guideText)
 	}
 
-	r.Show()
+	renderer.Show()
 }
 
 // OnTick은 LogTheme에 실시간 스크롤 효과를 줍니다.

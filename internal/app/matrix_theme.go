@@ -41,13 +41,14 @@ func (t *MatrixTheme) ResetState(gs *GameState) {
 	}
 }
 
-func (t *MatrixTheme) UpdateScreen(r *Renderer, gs *GameState) {
+func (t *MatrixTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	matrixState, ok := gs.CustomState.(*MatrixThemeState)
 	if !ok {
 		return // 상태가 아직 준비되지 않음
 	}
 
-	w, h := r.Size()
+renderer.Clear()
+	w, h := renderer.Size()
 	if matrixState.width != w || matrixState.height != h {
 		matrixState.width = w
 		matrixState.height = h
@@ -60,7 +61,7 @@ func (t *MatrixTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	// 배경을 검은색으로 채웁니다.
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
-			r.SetContent(x, y, ' ', tcell.StyleDefault.Background(tcell.ColorBlack))
+			renderer.SetContent(x, y, ' ', tcell.StyleDefault.Background(tcell.ColorBlack))
 		}
 	}
 
@@ -76,7 +77,7 @@ func (t *MatrixTheme) UpdateScreen(r *Renderer, gs *GameState) {
 					style = tcell.StyleDefault.Foreground(tcell.ColorDarkGreen)
 				}
 							if len(drop.Chars) > 0 {
-								r.SetContent(drop.X, y, drop.Chars[i%len(drop.Chars)], style)
+								renderer.SetContent(drop.X, y, drop.Chars[i%len(drop.Chars)], style)
 							}		}
 		}
 	}
@@ -97,19 +98,19 @@ func (t *MatrixTheme) UpdateScreen(r *Renderer, gs *GameState) {
 				style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
 			}
 		}
-		r.SetContent(targetX+i, targetY, r, style)
+		renderer.SetContent(targetX+i, targetY, r, style)
 	}
 
 	if gs.isFinished {
-		r.HideCursor()
+		renderer.HideCursor()
 		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-		r.DrawText((w-len(resultText))/2, targetY+2, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+		renderer.DrawText((w-len(resultText))/2, targetY+2, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 	} else {
 		cursorX := targetX + runewidth.StringWidth(gs.userInput)
-		r.ShowCursor(cursorX, targetY)
+		renderer.ShowCursor(cursorX, targetY)
 	}
 
-	r.Show()
+	renderer.Show()
 }
 
 func (t *MatrixTheme) OnTick(gs *GameState) {

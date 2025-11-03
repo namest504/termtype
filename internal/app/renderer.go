@@ -14,8 +14,8 @@ func NewRenderer(s tcell.Screen) *Renderer {
 
 // DrawText는 화면에 텍스트를 그립니다.
 func (r *Renderer) DrawText(x, y int, style tcell.Style, text string) {
-	for i, r := range []rune(text) {
-		r.screen.SetContent(x+i, y, r, nil, style)
+	for i, runeVal := range []rune(text) {
+		r.screen.SetContent(x+i, y, runeVal, nil, style)
 	}
 }
 

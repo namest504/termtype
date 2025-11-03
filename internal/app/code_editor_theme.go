@@ -50,18 +50,18 @@ func (t *CodeTheme) ResetState(gs *GameState) {
 	}
 }
 
-func (t *CodeTheme) UpdateScreen(r *Renderer, gs *GameState) {
+func (t *CodeTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	state, ok := gs.CustomState.(*CodeThemeState)
 	if !ok {
 		return
 	}
 
-	r.Clear()
-	w, h := r.Size()
+	renderer.Clear()
+	w, h := renderer.Size()
 
 	// 라인 번호 그리기
 	lineNumStyle := tcell.StyleDefault.Foreground(tcell.ColorDimGray)
-	r.DrawText(1, 1, lineNumStyle, "1")
+	renderer.DrawText(1, 1, lineNumStyle, "1")
 
 	// 코드 라인 그리기 (구문 강조 포함)
 	line := state.FormattedLine
@@ -95,7 +95,7 @@ func (t *CodeTheme) UpdateScreen(r *Renderer, gs *GameState) {
 			}
 			continue
 		}
-		r.SetContent(x, 1, runeVal, currentStyle)
+		renderer.SetContent(x, 1, runeVal, currentStyle)
 		x++
 	}
 
@@ -107,7 +107,7 @@ func (t *CodeTheme) UpdateScreen(r *Renderer, gs *GameState) {
 					if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
 						style = tcell.StyleDefault.Foreground(tcell.ColorRed)
 					}
-					r.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], style)
+					renderer.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], style)
 				}
 			}
 		
@@ -115,22 +115,22 @@ func (t *CodeTheme) UpdateScreen(r *Renderer, gs *GameState) {
 			statusBarStyle := tcell.StyleDefault.Reverse(true)
 			statusText := fmt.Sprintf(" NORMAL | %s | %d/%d ", state.Language, len(gs.userInput), len(gs.targetSentence))
 			for i := 0; i < w; i++ {
-				r.SetContent(i, h-1, ' ', statusBarStyle)
+				renderer.SetContent(i, h-1, ' ', statusBarStyle)
 			}
-			r.DrawText(0, h-1, statusBarStyle, statusText)
+			renderer.DrawText(0, h-1, statusBarStyle, statusText)
 		
 			if gs.isFinished {
-				r.HideCursor()
+				renderer.HideCursor()
 				resultText := fmt.Sprintf("WPM: %.2f | ACC: %.2f%%", gs.wpm, gs.accuracy)
-				r.DrawText(len(statusText), h-1, statusBarStyle, " | "+resultText)
+				renderer.DrawText(len(statusText), h-1, statusBarStyle, " | "+resultText)
 			} else {
 				if quoteIndex != -1 {
 					startX := 4 + quoteIndex
 					cursorX := startX + 1 + runewidth.StringWidth(gs.userInput)
-					r.ShowCursor(cursorX, 1)
+					renderer.ShowCursor(cursorX, 1)
 				}	}
 
-	r.Show()
+	renderer.Show()
 }
 
 func (t *CodeTheme) OnTick(gs *GameState) {}
