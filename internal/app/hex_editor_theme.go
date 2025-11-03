@@ -90,6 +90,16 @@ func (t *HexTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		s.SetContent(62+charIdx, lineIdx, []rune(gs.targetSentence)[i], nil, style)
 	}
 
+	if gs.isFinished {
+		s.HideCursor()
+		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
+		drawText(s, 0, h-1, tcell.StyleDefault, resultText)
+	} else {
+		cursorLine := state.StartLine + (len(inputRunes) / 16)
+		cursorCol := len(inputRunes) % 16
+		s.ShowCursor(62+cursorCol, cursorLine)
+	}
+
 	s.Show()
 }
 
