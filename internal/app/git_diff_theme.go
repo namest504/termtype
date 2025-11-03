@@ -53,6 +53,15 @@ func (t *DiffTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		if i == 2 { // 문장이 들어갈 위치
 			plusStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 			drawText(s, 0, y, plusStyle, "+ "+gs.targetSentence)
+
+			// 사용자 입력 피드백
+			for i, r := range []rune(gs.userInput) {
+				style := tcell.StyleDefault.Foreground(tcell.ColorGreen).Background(tcell.ColorDarkGreen)
+				if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
+					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
+				}
+				s.SetContent(1+i, y, []rune(gs.targetSentence)[i], nil, style)
+			}
 		} else {
 			drawText(s, 0, y, tcell.StyleDefault, " "+line)
 		}
