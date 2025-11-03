@@ -120,6 +120,18 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 	}
 	drawText(s, 0, h-1, statusBarStyle, statusText)
 
+	if gs.isFinished {
+		s.HideCursor()
+		resultText := fmt.Sprintf("WPM: %.2f | ACC: %.2f%%", gs.wpm, gs.accuracy)
+		drawText(s, len(statusText), h-1, statusBarStyle, " | "+resultText)
+	} else {
+		if quoteIndex != -1 {
+			startX := 4 + quoteIndex
+			cursorX := startX + 1 + runewidth.StringWidth(gs.userInput)
+			s.ShowCursor(cursorX, 1)
+		}
+	}
+
 	s.Show()
 }
 
