@@ -1,7 +1,5 @@
 package app
 
-import "github.com/gdamore/tcell/v2"
-
 // Theme 인터페이스는 모든 테마가 구현해야 할 메서드를 정의합니다.
 type Theme interface {
 	// ResetState는 새 라운드를 위해 게임 상태를 초기화합니다.

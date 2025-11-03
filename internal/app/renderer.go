@@ -45,6 +45,6 @@ func (r *Renderer) Size() (int, int) {
 }
 
 // SetContent는 화면의 특정 위치에 문자를 설정합니다.
-func (r *Renderer) SetContent(x, y int, r rune, style tcell.Style) {
-	r.screen.SetContent(x, y, r, nil, style)
+func (r *Renderer) SetContent(x, y int, runeVal rune, style tcell.Style) {
+	r.screen.SetContent(x, y, runeVal, nil, style)
 }
