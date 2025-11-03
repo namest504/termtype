@@ -112,6 +112,14 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		}
 	}
 
+	// 상태 표시줄
+	statusBarStyle := tcell.StyleDefault.Reverse(true)
+	statusText := fmt.Sprintf(" NORMAL | %s | %d/%d ", state.Language, len(gs.userInput), len(gs.targetSentence)) 
+	for i := 0; i < w; i++ {
+		s.SetContent(i, h-1, ' ', nil, statusBarStyle)
+	}
+	drawText(s, 0, h-1, statusBarStyle, statusText)
+
 	s.Show()
 }
 
