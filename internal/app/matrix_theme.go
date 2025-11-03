@@ -47,7 +47,7 @@ func (t *MatrixTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		return // 상태가 아직 준비되지 않음
 	}
 
-renderer.Clear()
+	renderer.Clear()
 	w, h := renderer.Size()
 	if matrixState.width != w || matrixState.height != h {
 		matrixState.width = w
@@ -83,31 +83,82 @@ renderer.Clear()
 	}
 
 	// 타이핑할 문장을 중앙에 그립니다.
-	targetY := h / 2
-	targetX := (w - len(gs.targetSentence)) / 2
+	// targetY := h / 2
+	// targetX := (w - len(gs.targetSentence)) / 2
 
-	targetRunes := []rune(gs.targetSentence)
+	// targetRunes := []rune(gs.targetSentence)
+	// inputRunes := []rune(gs.userInput)
+
+	// for i, r := range targetRunes {
+	// 	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+	// 	if i < len(inputRunes) {
+	// 		if inputRunes[i] == r {
+	// 			style = tcell.StyleDefault.Foreground(tcell.ColorLawnGreen).Background(tcell.ColorBlack)
+	// 		} else {
+	// 			style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
+	// 		}
+	// 	}
+	// 	renderer.SetContent(targetX+i, targetY, r, style)
+	// }
+
+	// if gs.isFinished {
+	// 	renderer.HideCursor()
+	// 	resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
+	// 	renderer.DrawText((w-len(resultText))/2, targetY+2, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+	// } else {
+	// 	cursorX := targetX + runewidth.StringWidth(gs.userInput)
+	// 	renderer.ShowCursor(cursorX, targetY)
+	// }
+
+	// renderer.Show()
+
+	// 텍스트를 그릴 시작 Y 좌표
+	startY := h/2 - 2
+
+	// 줄바꿈 처리된 대상 문장
+	wrappedTarget := wrapText(gs.targetSentence, w-4) // 좌우 패딩 2씩
 	inputRunes := []rune(gs.userInput)
+	inputOffset := 0 // 현재 입력된 글자가 몇 번째 줄에 있는지 계산하기 위한 오프셋
 
-	for i, r := range targetRunes {
-		style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-		if i < len(inputRunes) {
-			if inputRunes[i] == r {
-				style = tcell.StyleDefault.Foreground(tcell.ColorLawnGreen).Background(tcell.ColorBlack)
-			} else {
-				style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
+	for lineIdx, line := range wrappedTarget {
+		lineRunes := []rune(line)
+		lineX := (w - runewidth.StringWidth(line)) / 2 // 각 줄을 중앙 정렬
+		for charIdx, r := range lineRunes {
+			currentInputIdx := inputOffset + charIdx
+			style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+
+			if currentInputIdx < len(inputRunes) {
+				if inputRunes[currentInputIdx] == r {
+					style = tcell.StyleDefault.Foreground(tcell.ColorLawnGreen).Background(tcell.ColorBlack)
+				} else {
+					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
+				}
 			}
+			renderer.SetContent(lineX+charIdx, startY+lineIdx, r, style)
 		}
-		renderer.SetContent(targetX+i, targetY, r, style)
+		inputOffset += len(lineRunes)
 	}
 
 	if gs.isFinished {
 		renderer.HideCursor()
 		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-		renderer.DrawText((w-len(resultText))/2, targetY+2, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+		renderer.DrawText((w-len(resultText))/2, startY+len(wrappedTarget)+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 	} else {
-		cursorX := targetX + runewidth.StringWidth(gs.userInput)
-		renderer.ShowCursor(cursorX, targetY)
+		cursorLineIdx := 0
+		cursorCharIdx := 0
+		currentOffset := 0
+		for i, line := range wrappedTarget {
+			lineLen := len([]rune(line))
+			if len(inputRunes) >= currentOffset && len(inputRunes) <= currentOffset+lineLen {
+				cursorLineIdx = i
+				cursorCharIdx = runewidth.StringWidth(string(inputRunes[currentOffset:len(inputRunes)]))
+				break
+			}
+			currentOffset += lineLen
+		}
+		currentLine := wrappedTarget[cursorLineIdx]
+		cursorX := (w - runewidth.StringWidth(currentLine)) / 2 + cursorCharIdx
+		renderer.ShowCursor(cursorX, startY+cursorLineIdx)
 	}
 
 	renderer.Show()

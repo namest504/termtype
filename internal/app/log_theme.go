@@ -58,7 +58,7 @@ func (t *LogTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		return // 상태가 준비되지 않음
 	}
 	renderer.Clear()
-	_, h := renderer.Size()
+	w, h := renderer.Size()
 
 	// 터미널 높이에 맞춰 동적으로 로그 줄 수 조절
 	numLogs := h - 4 // 상단 여백, 타겟 라인, 결과 라인 등을 위한 공간 확보
@@ -91,23 +91,43 @@ func (t *LogTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		renderer.DrawText(1, targetY, prefixStyle, logState.logPrefix)
 
 		prefixWidth := runewidth.StringWidth(logState.logPrefix)
-		targetRunes := []rune(gs.targetSentence)
-		inputRunes := []rune(gs.userInput)
+		availableWidth := w - 1 - prefixWidth
 
-		for i, r := range targetRunes {
-			style := tcell.StyleDefault.Foreground(tcell.ColorGray)
-			if i < len(inputRunes) {
-				if inputRunes[i] == r {
-					style = tcell.StyleDefault.Foreground(tcell.ColorGreen)
-				} else {
-					style = tcell.StyleDefault.Foreground(tcell.ColorRed)
+		wrappedTarget := wrapText(gs.targetSentence, availableWidth)
+		inputRunes := []rune(gs.userInput)
+		inputOffset := 0
+
+		for lineIdx, line := range wrappedTarget {
+			lineRunes := []rune(line)
+			for charIdx, r := range lineRunes {
+				currentInputIdx := inputOffset + charIdx
+				style := tcell.StyleDefault.Foreground(tcell.ColorGray)
+
+				if currentInputIdx < len(inputRunes) {
+					if inputRunes[currentInputIdx] == r {
+						style = tcell.StyleDefault.Foreground(tcell.ColorGreen)
+					} else {
+						style = tcell.StyleDefault.Foreground(tcell.ColorRed)
+					}
 				}
+				renderer.SetContent(1+prefixWidth+charIdx, targetY+lineIdx, r, style)
 			}
-			renderer.SetContent(1+prefixWidth+i, targetY, r, style)
+			inputOffset += len(lineRunes)
 		}
 
-		cursorX := 1 + prefixWidth + runewidth.StringWidth(gs.userInput)
-		renderer.ShowCursor(cursorX, targetY)
+		cursorLineIdx := 0
+		cursorCharIdx := 0
+		currentOffset := 0
+		for i, line := range wrappedTarget {
+			lineLen := len([]rune(line))
+			if len(inputRunes) >= currentOffset && len(inputRunes) <= currentOffset+lineLen {
+				cursorLineIdx = i
+				cursorCharIdx = runewidth.StringWidth(string(inputRunes[currentOffset:len(inputRunes)]))
+				break
+			}
+			currentOffset += lineLen
+		}
+		renderer.ShowCursor(1+prefixWidth+cursorCharIdx, targetY+cursorLineIdx)
 
 	} else {
 		renderer.HideCursor()
