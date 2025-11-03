@@ -62,7 +62,7 @@ func (t *DiffTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 				if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
 					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
 				}
-				s.SetContent(1+i, y, []rune(gs.targetSentence)[i], nil, style)
+				s.SetContent(i, y, []rune(gs.targetSentence)[i], nil, style)
 			}
 		} else {
 			drawText(s, 0, y, tcell.StyleDefault, " "+line)
@@ -75,8 +75,7 @@ func (t *DiffTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
 		drawText(s, 0, y+2, tcell.StyleDefault, resultText)
 	} else {
-		cursorX := 1 + runewidth.StringWidth(gs.userInput)
-		s.ShowCursor(cursorX, 6)
+		cursorX := runewidth.StringWidth(gs.userInput)
 		s.ShowCursor(cursorX, 6)
 	}
 

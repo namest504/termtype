@@ -101,36 +101,34 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 
 	quoteIndex := strings.Index(state.FormattedLine, `"`+gs.targetSentence+`"`)
 	if quoteIndex != -1 {
-		// `+ 1`을 제거하여 커서 위치를 한 칸 뒤로 이동
-		startX := 4 + quoteIndex
-		for i, r := range []rune(gs.userInput) {
-			style := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-			if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
-				style = tcell.StyleDefault.Foreground(tcell.ColorRed)
+				startX := 4 + quoteIndex
+				for i, r := range []rune(gs.userInput) {
+					style := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+					if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
+						style = tcell.StyleDefault.Foreground(tcell.ColorRed)
+					}
+					s.SetContent(startX+i, 1, []rune(gs.targetSentence)[i], nil, style)
+				}
 			}
-			s.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], nil, style)
-		}
-	}
-
-	// 상태 표시줄
-	statusBarStyle := tcell.StyleDefault.Reverse(true)
-	statusText := fmt.Sprintf(" NORMAL | %s | %d/%d ", state.Language, len(gs.userInput), len(gs.targetSentence)) 
-	for i := 0; i < w; i++ {
-		s.SetContent(i, h-1, ' ', nil, statusBarStyle)
-	}
-	drawText(s, 0, h-1, statusBarStyle, statusText)
-
-	if gs.isFinished {
-		s.HideCursor()
-		resultText := fmt.Sprintf("WPM: %.2f | ACC: %.2f%%", gs.wpm, gs.accuracy)
-		drawText(s, len(statusText), h-1, statusBarStyle, " | "+resultText)
-	} else {
-		if quoteIndex != -1 {
-			startX := 4 + quoteIndex
-			cursorX := startX + 1 + runewidth.StringWidth(gs.userInput)
-			s.ShowCursor(cursorX, 1)
-		}
-	}
+		
+			// 상태 표시줄
+			statusBarStyle := tcell.StyleDefault.Reverse(true)
+			statusText := fmt.Sprintf(" NORMAL | %s | %d/%d ", state.Language, len(gs.userInput), len(gs.targetSentence))
+			for i := 0; i < w; i++ {
+				s.SetContent(i, h-1, ' ', nil, statusBarStyle)
+			}
+			drawText(s, 0, h-1, statusBarStyle, statusText)
+		
+			if gs.isFinished {
+				s.HideCursor()
+				resultText := fmt.Sprintf("WPM: %.2f | ACC: %.2f%%", gs.wpm, gs.accuracy)
+				drawText(s, len(statusText), h-1, statusBarStyle, " | "+resultText)
+			} else {
+				if quoteIndex != -1 {
+					startX := 4 + quoteIndex
+					cursorX := startX + runewidth.StringWidth(gs.userInput)
+					s.ShowCursor(cursorX, 1)
+				}	}
 
 	s.Show()
 }
