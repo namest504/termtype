@@ -1,9 +1,11 @@
 package app
 
 import (
+	"fmt"
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 )
 
 func init() {
@@ -66,6 +68,16 @@ func (t *DiffTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 			drawText(s, 0, y, tcell.StyleDefault, " "+line)
 		}
 		y++
+	}
+
+	if gs.isFinished {
+		s.HideCursor()
+		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
+		drawText(s, 0, y+2, tcell.StyleDefault, resultText)
+	} else {
+		cursorX := 1 + runewidth.StringWidth(gs.userInput)
+		s.ShowCursor(cursorX, 6)
+		s.ShowCursor(cursorX, 6)
 	}
 
 	s.Show()
