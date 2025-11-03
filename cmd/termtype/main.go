@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -13,7 +14,16 @@ import (
 func main() {
 	// 테마 플래그 설정
 	themeFlag := flag.String("theme", "log", "Theme to use (e.g., 'simple', 'log', 'matrix')")
+	listThemesFlag := flag.Bool("list-themes", false, "List available themes")
 	flag.Parse()
+
+	if *listThemesFlag {
+		fmt.Println("Available themes:")
+		for name := range app.Themes {
+			fmt.Printf("- %s\n", name)
+		}
+		return
+	}
 
 	rand.Seed(time.Now().UnixNano())
 
