@@ -99,6 +99,19 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		x++
 	}
 
+	quoteIndex := strings.Index(state.FormattedLine, `"`+gs.targetSentence+`"`)
+	if quoteIndex != -1 {
+		// `+ 1`을 제거하여 커서 위치를 한 칸 뒤로 이동
+		startX := 4 + quoteIndex
+		for i, r := range []rune(gs.userInput) {
+			style := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+			if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
+				style = tcell.StyleDefault.Foreground(tcell.ColorRed)
+			}
+			s.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], nil, style)
+		}
+	}
+
 	s.Show()
 }
 
