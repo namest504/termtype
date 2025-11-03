@@ -2,11 +2,16 @@ package app
 
 import (
 	"bufio"
+	_ "embed"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
+
+//go:embed configs/sentences.txt
+var sentencesFile string
 
 // 게임 상태를 관리하는 구조체
 type GameState struct {
@@ -33,7 +38,7 @@ type Game struct {
 
 // 새로운 게임 생성
 func NewGame(s tcell.Screen, theme Theme) (*Game, error) {
-	sentences, err := loadSentences("configs/sentences.txt")
+	sentences, err := loadSentences()
 	if err != nil {
 		return nil, err
 	}
@@ -45,15 +50,9 @@ func NewGame(s tcell.Screen, theme Theme) (*Game, error) {
 }
 
 // 파일에서 문장 불러오기
-func loadSentences(path string) ([]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
+func loadSentences() ([]string, error) {
 	var sentences []string
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(strings.NewReader(sentencesFile))
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line != "" {
