@@ -22,7 +22,15 @@ func selectTheme(s tcell.Screen) (app.Theme, error) {
 	for name := range app.Themes {
 		themes = append(themes, name)
 	}
-	sort.Strings(themes)
+	sort.Slice(themes, func(i, j int) bool {
+		if themes[i] == "log" {
+			return true
+		}
+		if themes[j] == "log" {
+			return false
+		}
+		return themes[i] < themes[j]
+	})
 
 	selectedIndex := 0
 
