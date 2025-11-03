@@ -59,6 +59,23 @@ func (t *HexTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		drawText(s, 62, y, asciiStyle, asciiStr)
 	}
 
+	// 실제 타이핑할 문장을 중앙에 덮어쓰기
+	targetBytes := []byte(gs.targetSentence)
+	for i, b := range targetBytes {
+		lineIdx := state.StartLine + (i / 16)
+		charIdx := i % 16
+
+		hexStr := fmt.Sprintf("%02x", b)
+		asciiChar := "."
+		if b >= 32 && b <= 126 {
+			asciiChar = string(b)
+		}
+
+		s.SetContent(10+charIdx*3, lineIdx, []rune(hexStr)[0], nil, hexStyle)
+		s.SetContent(10+charIdx*3+1, lineIdx, []rune(hexStr)[1], nil, hexStyle)
+		s.SetContent(62+charIdx, lineIdx, []rune(asciiChar)[0], nil, asciiStyle)
+	}
+
 	s.Show()
 }
 
