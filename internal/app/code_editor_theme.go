@@ -107,7 +107,7 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 					if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
 						style = tcell.StyleDefault.Foreground(tcell.ColorRed)
 					}
-					s.SetContent(startX+i, 1, []rune(gs.targetSentence)[i], nil, style)
+					s.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], nil, style)
 				}
 			}
 		
@@ -126,7 +126,7 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 			} else {
 				if quoteIndex != -1 {
 					startX := 4 + quoteIndex
-					cursorX := startX + runewidth.StringWidth(gs.userInput)
+					cursorX := startX + 1 + runewidth.StringWidth(gs.userInput)
 					s.ShowCursor(cursorX, 1)
 				}	}
 
