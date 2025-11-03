@@ -51,6 +51,55 @@ func (t *CodeTheme) ResetState(gs *GameState) {
 }
 
 func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
+	state, ok := gs.CustomState.(*CodeThemeState)
+	if !ok {
+		return
+	}
+
+	s.Clear()
+	w, h := s.Size()
+
+	// 라인 번호 그리기
+	lineNumStyle := tcell.StyleDefault.Foreground(tcell.ColorDimGray)
+	drawText(s, 1, 1, lineNumStyle, "1")
+
+	// 코드 라인 그리기 (구문 강조 포함)
+	line := state.FormattedLine
+	quoteStyle := tcell.StyleDefault.Foreground(tcell.ColorOrange)
+	keywordStyle := tcell.StyleDefault.Foreground(tcell.ColorCornflowerBlue)
+	defaultStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+
+	// 특수 문자를 사용하여 하이라이팅 영역 표시
+	highlightedLine := line
+	for _, kw := range state.Keywords {
+		highlightedLine = strings.ReplaceAll(highlightedLine, kw, "\x1b"+kw+"\x1b")
+	}
+	highlightedLine = strings.ReplaceAll(highlightedLine, `"`+gs.targetSentence+`"`, "\x1c`\"`"+gs.targetSentence+`\"`+"\x1c")
+
+	x := 4
+	currentStyle := defaultStyle
+	for _, r := range []rune(highlightedLine) {
+		switch r {
+		case '\x1b': // 키워드 스타일 토글
+			if currentStyle == defaultStyle {
+				currentStyle = keywordStyle
+			} else {
+				currentStyle = defaultStyle
+			}
+			continue
+		case '\x1c': // 문자열 스타일 토글
+			if currentStyle == defaultStyle {
+				currentStyle = quoteStyle
+			} else {
+				currentStyle = defaultStyle
+			}
+			continue
+		}
+		s.SetContent(x, 1, r, nil, currentStyle)
+		x++
+	}
+
+	s.Show()
 }
 
 func (t *CodeTheme) OnTick(gs *GameState) {}
