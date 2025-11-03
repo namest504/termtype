@@ -2,16 +2,11 @@ package app
 
 import (
 	"bufio"
-	"fmt"
-	"math/rand"
 	"os"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
-
-var logLevels = []string{"INFO", "WARN", "DEBUG", "ERROR"}
-var sources = []string{"auth-service", "api-gateway", "db-connector", "cache-worker", "metrics-agent"}
 
 // 게임 상태를 관리하는 구조체
 type GameState struct {
@@ -30,9 +25,10 @@ type GameState struct {
 
 // Game 전체를 관리하는 구조체
 type Game struct {
-	screen tcell.Screen
-	state  *GameState
-	theme  Theme
+	screen   tcell.Screen
+	renderer *Renderer
+	state    *GameState
+	theme    Theme
 }
 
 // 새로운 게임 생성
@@ -45,7 +41,7 @@ func NewGame(s tcell.Screen, theme Theme) (*Game, error) {
 	state := &GameState{sentences: sentences}
 	theme.ResetState(state)
 
-	return &Game{screen: s, state: state, theme: theme}, nil
+	return &Game{screen: s, renderer: NewRenderer(s), state: state, theme: theme}, nil
 }
 
 // 파일에서 문장 불러오기
@@ -65,15 +61,6 @@ func loadSentences(path string) ([]string, error) {
 		}
 	}
 	return sentences, scanner.Err()
-}
-
-// 문장을 로그 라인 형식으로 변환
-func formatAsLogLine(sentence string) (string, string, string) {
-	ts := time.Now().Format("2006-01-02T15:04:05Z")
-	level := logLevels[rand.Intn(len(logLevels))]
-	source := sources[rand.Intn(len(sources))]
-	prefix := fmt.Sprintf("[%s] [%s] [%s] ", ts, level, source)
-	return prefix + sentence, prefix, sentence
 }
 
 // 공통 리셋 로직
@@ -97,7 +84,7 @@ func (g *Game) Run() {
 		}
 	}()
 
-	g.theme.UpdateScreen(g.screen, g.state)
+	g.theme.UpdateScreen(g.renderer, g.state)
 
 	for {
 		select {
@@ -105,15 +92,15 @@ func (g *Game) Run() {
 			switch ev := ev.(type) {
 			case *tcell.EventResize:
 				g.screen.Sync()
-				g.theme.UpdateScreen(g.screen, g.state)
+				g.theme.UpdateScreen(g.renderer, g.state)
 			case *tcell.EventKey:
 				g.handleKeyEvent(ev)
-				g.theme.UpdateScreen(g.screen, g.state)
+				g.theme.UpdateScreen(g.renderer, g.state)
 			}
 		case <-ticker.C:
 			if !g.state.isFinished {
 				g.theme.OnTick(g.state)
-				g.theme.UpdateScreen(g.screen, g.state)
+				g.theme.UpdateScreen(g.renderer, g.state)
 			}
 		}
 	}

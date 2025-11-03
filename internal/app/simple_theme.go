@@ -21,12 +21,12 @@ func (t *SimpleTheme) ResetState(gs *GameState) {
 	gs.targetSentence = gs.sentences[rand.Intn(len(gs.sentences))]
 }
 
-func (t *SimpleTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
+func (t *SimpleTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	defStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
 
-	s.Clear()
+	r.Clear()
 
 	if !gs.isFinished {
 		// 타이핑 중 화면
@@ -42,24 +42,24 @@ func (t *SimpleTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 					style = incorrectStyle
 				}
 			}
-			s.SetContent(i+1, 1, r, nil, style)
+			r.SetContent(i+1, 1, r, style)
 		}
-		drawText(s, 1, 3, defStyle, "(ESC to exit)")
+		r.DrawText(1, 3, defStyle, "(ESC to exit)")
 
 		// 커서 위치 설정
 		cursorX := 1 + runewidth.StringWidth(gs.userInput)
-		s.ShowCursor(cursorX, 1)
+		r.ShowCursor(cursorX, 1)
 
 	} else {
 		// 결과 화면
-		s.HideCursor()
+		r.HideCursor()
 		resultText1 := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
 		resultText2 := "Press Enter to continue or ESC to exit."
-		drawText(s, 1, 1, defStyle, resultText1)
-		drawText(s, 1, 3, defStyle, resultText2)
+		r.DrawText(1, 1, defStyle, resultText1)
+		r.DrawText(1, 3, defStyle, resultText2)
 	}
 
-	s.Show()
+	r.Show()
 }
 
 func (t *SimpleTheme) OnTick(gs *GameState) { /* Do nothing */ }

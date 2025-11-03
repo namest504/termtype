@@ -41,13 +41,13 @@ func (t *MatrixTheme) ResetState(gs *GameState) {
 	}
 }
 
-func (t *MatrixTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
+func (t *MatrixTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	matrixState, ok := gs.CustomState.(*MatrixThemeState)
 	if !ok {
 		return // 상태가 아직 준비되지 않음
 	}
 
-	w, h := s.Size()
+	w, h := r.Size()
 	if matrixState.width != w || matrixState.height != h {
 		matrixState.width = w
 		matrixState.height = h
@@ -60,7 +60,7 @@ func (t *MatrixTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 	// 배경을 검은색으로 채웁니다.
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
-			s.SetContent(x, y, ' ', nil, tcell.StyleDefault.Background(tcell.ColorBlack))
+			r.SetContent(x, y, ' ', tcell.StyleDefault.Background(tcell.ColorBlack))
 		}
 	}
 
@@ -76,7 +76,7 @@ func (t *MatrixTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 					style = tcell.StyleDefault.Foreground(tcell.ColorDarkGreen)
 				}
 							if len(drop.Chars) > 0 {
-								s.SetContent(drop.X, y, drop.Chars[i%len(drop.Chars)], nil, style)
+								r.SetContent(drop.X, y, drop.Chars[i%len(drop.Chars)], style)
 							}		}
 		}
 	}
@@ -97,19 +97,19 @@ func (t *MatrixTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 				style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
 			}
 		}
-		s.SetContent(targetX+i, targetY, r, nil, style)
+		r.SetContent(targetX+i, targetY, r, style)
 	}
 
 	if gs.isFinished {
-		s.HideCursor()
+		r.HideCursor()
 		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-		drawText(s, (w-len(resultText))/2, targetY+2, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+		r.DrawText((w-len(resultText))/2, targetY+2, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 	} else {
 		cursorX := targetX + runewidth.StringWidth(gs.userInput)
-		s.ShowCursor(cursorX, targetY)
+		r.ShowCursor(cursorX, targetY)
 	}
 
-	s.Show()
+	r.Show()
 }
 
 func (t *MatrixTheme) OnTick(gs *GameState) {

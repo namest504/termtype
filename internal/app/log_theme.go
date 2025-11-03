@@ -10,6 +10,17 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+var logLevels = []string{"INFO", "WARN", "DEBUG", "ERROR"}
+var sources = []string{"auth-service", "api-gateway", "db-connector", "cache-worker", "metrics-agent"}
+
+func formatAsLogLine(sentence string) (string, string, string) {
+	ts := time.Now().Format("2006-01-02T15:04:05Z")
+	level := logLevels[rand.Intn(len(logLevels))]
+	source := sources[rand.Intn(len(sources))]
+	prefix := fmt.Sprintf("[%s] [%s] [%s] ", ts, level, source)
+	return prefix + sentence, prefix, sentence
+}
+
 func init() {
 	Themes["log"] = &LogTheme{}
 }
@@ -41,13 +52,13 @@ func (t *LogTheme) ResetState(gs *GameState) {
 	gs.targetSentence = sentence
 }
 
-func (t *LogTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
+func (t *LogTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	logState, ok := gs.CustomState.(*LogThemeState)
 	if !ok {
 		return // 상태가 준비되지 않음
 	}
-	s.Clear()
-	_, h := s.Size()
+	r.Clear()
+	_, h := r.Size()
 
 	// 터미널 높이에 맞춰 동적으로 로그 줄 수 조절
 	numLogs := h - 4 // 상단 여백, 타겟 라인, 결과 라인 등을 위한 공간 확보
@@ -65,7 +76,7 @@ func (t *LogTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 	// 배경 로그 그리기
 	logY := 0
 	for _, logLine := range logState.backgroundLogs {
-		drawText(s, 1, logY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logLine)
+		r.DrawText(1, logY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logLine)
 		logY++
 	}
 
@@ -77,7 +88,7 @@ func (t *LogTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 		} else if strings.Contains(logState.logPrefix, "[WARN]") {
 			prefixStyle = tcell.StyleDefault.Foreground(tcell.ColorYellow)
 		}
-		drawText(s, 1, targetY, prefixStyle, logState.logPrefix)
+		r.DrawText(1, targetY, prefixStyle, logState.logPrefix)
 
 		prefixWidth := runewidth.StringWidth(logState.logPrefix)
 		targetRunes := []rune(gs.targetSentence)
@@ -92,24 +103,24 @@ func (t *LogTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 					style = tcell.StyleDefault.Foreground(tcell.ColorRed)
 				}
 			}
-			s.SetContent(1+prefixWidth+i, targetY, r, nil, style)
+			r.SetContent(1+prefixWidth+i, targetY, r, style)
 		}
 
 		cursorX := 1 + prefixWidth + runewidth.StringWidth(gs.userInput)
-		s.ShowCursor(cursorX, targetY)
+		r.ShowCursor(cursorX, targetY)
 
 	} else {
-		s.HideCursor()
-		drawText(s, 1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
+		r.HideCursor()
+		r.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
 
 		resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.wpm, gs.accuracy)
-		drawText(s, 1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
+		r.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
 
 		guideText := "Press Enter to continue or ESC to exit."
-		drawText(s, 1, targetY+3, tcell.StyleDefault, guideText)
+		r.DrawText(1, targetY+3, tcell.StyleDefault, guideText)
 	}
 
-	s.Show()
+	r.Show()
 }
 
 // OnTick은 LogTheme에 실시간 스크롤 효과를 줍니다.
@@ -122,4 +133,17 @@ func (t *LogTheme) OnTick(gs *GameState) {
 	// 새 로그를 추가하고 가장 오래된 로그를 제거
 	newLog, _, _ := formatAsLogLine(gs.sentences[rand.Intn(len(gs.sentences))])
 	logState.backgroundLogs = append(logState.backgroundLogs[1:], newLog)
+}
+
+func getStyleForLogLevel(level string) tcell.Style {
+	switch level {
+	case "ERROR":
+		return tcell.StyleDefault.Foreground(tcell.ColorRed)
+	case "WARN":
+		return tcell.StyleDefault.Foreground(tcell.ColorYellow)
+	case "DEBUG":
+		return tcell.StyleDefault.Foreground(tcell.ColorBlue)
+	default:
+		return tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	}
 }

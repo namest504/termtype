@@ -50,18 +50,18 @@ func (t *CodeTheme) ResetState(gs *GameState) {
 	}
 }
 
-func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
+func (t *CodeTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	state, ok := gs.CustomState.(*CodeThemeState)
 	if !ok {
 		return
 	}
 
-	s.Clear()
-	w, h := s.Size()
+	r.Clear()
+	w, h := r.Size()
 
 	// 라인 번호 그리기
 	lineNumStyle := tcell.StyleDefault.Foreground(tcell.ColorDimGray)
-	drawText(s, 1, 1, lineNumStyle, "1")
+	r.DrawText(1, 1, lineNumStyle, "1")
 
 	// 코드 라인 그리기 (구문 강조 포함)
 	line := state.FormattedLine
@@ -78,8 +78,8 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 
 	x := 4
 	currentStyle := defaultStyle
-	for _, r := range []rune(highlightedLine) {
-		switch r {
+	for _, runeVal := range []rune(highlightedLine) {
+		switch runeVal {
 		case '\x1b': // 키워드 스타일 토글
 			if currentStyle == defaultStyle {
 				currentStyle = keywordStyle
@@ -95,7 +95,7 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 			}
 			continue
 		}
-		s.SetContent(x, 1, r, nil, currentStyle)
+		r.SetContent(x, 1, runeVal, currentStyle)
 		x++
 	}
 
@@ -107,7 +107,7 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 					if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
 						style = tcell.StyleDefault.Foreground(tcell.ColorRed)
 					}
-					s.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], nil, style)
+					r.SetContent(startX+1+i, 1, []rune(gs.targetSentence)[i], style)
 				}
 			}
 		
@@ -115,22 +115,22 @@ func (t *CodeTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 			statusBarStyle := tcell.StyleDefault.Reverse(true)
 			statusText := fmt.Sprintf(" NORMAL | %s | %d/%d ", state.Language, len(gs.userInput), len(gs.targetSentence))
 			for i := 0; i < w; i++ {
-				s.SetContent(i, h-1, ' ', nil, statusBarStyle)
+				r.SetContent(i, h-1, ' ', statusBarStyle)
 			}
-			drawText(s, 0, h-1, statusBarStyle, statusText)
+			r.DrawText(0, h-1, statusBarStyle, statusText)
 		
 			if gs.isFinished {
-				s.HideCursor()
+				r.HideCursor()
 				resultText := fmt.Sprintf("WPM: %.2f | ACC: %.2f%%", gs.wpm, gs.accuracy)
-				drawText(s, len(statusText), h-1, statusBarStyle, " | "+resultText)
+				r.DrawText(len(statusText), h-1, statusBarStyle, " | "+resultText)
 			} else {
 				if quoteIndex != -1 {
 					startX := 4 + quoteIndex
 					cursorX := startX + 1 + runewidth.StringWidth(gs.userInput)
-					s.ShowCursor(cursorX, 1)
+					r.ShowCursor(cursorX, 1)
 				}	}
 
-	s.Show()
+	r.Show()
 }
 
 func (t *CodeTheme) OnTick(gs *GameState) {}

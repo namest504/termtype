@@ -37,24 +37,24 @@ func (t *DiffTheme) ResetState(gs *GameState) {
 	gs.CustomState = state
 }
 
-func (t *DiffTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
+func (t *DiffTheme) UpdateScreen(r *Renderer, gs *GameState) {
 	state, ok := gs.CustomState.(*DiffThemeState)
 	if !ok {
 		return
 	}
-	s.Clear()
+	r.Clear()
 
 	// 컨텍스트 라인 그리기
-	drawText(s, 0, 0, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "diff --git a/main.go b/main.go")
-	drawText(s, 0, 1, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "--- a/main.go")
-	drawText(s, 0, 2, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "+++ b/main.go")
-	drawText(s, 0, 3, tcell.StyleDefault.Foreground(tcell.ColorBlue), "@@ -1,5 +1,5 @@")
+	r.DrawText(0, 0, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "diff --git a/main.go b/main.go")
+	r.DrawText(0, 1, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "--- a/main.go")
+	r.DrawText(0, 2, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "+++ b/main.go")
+	r.DrawText(0, 3, tcell.StyleDefault.Foreground(tcell.ColorBlue), "@@ -1,5 +1,5 @@")
 
 	y := 4
 	for i, line := range state.ContextLines {
 		if i == 2 { // 문장이 들어갈 위치
 			plusStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-			drawText(s, 0, y, plusStyle, "+ "+gs.targetSentence)
+			r.DrawText(0, y, plusStyle, "+ "+gs.targetSentence)
 
 			// 사용자 입력 피드백
 			for i, r := range []rune(gs.userInput) {
@@ -62,24 +62,24 @@ func (t *DiffTheme) UpdateScreen(s tcell.Screen, gs *GameState) {
 				if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
 					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
 				}
-				s.SetContent(i+2, y, []rune(gs.targetSentence)[i], nil, style)
+				r.SetContent(i+2, y, []rune(gs.targetSentence)[i], style)
 			}
 		} else {
-			drawText(s, 0, y, tcell.StyleDefault, " "+line)
+			r.DrawText(0, y, tcell.StyleDefault, " "+line)
 		}
 		y++
 	}
 
 	if gs.isFinished {
-		s.HideCursor()
+		r.HideCursor()
 		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-		drawText(s, 0, y+2, tcell.StyleDefault, resultText)
+		r.DrawText(0, y+2, tcell.StyleDefault, resultText)
 	} else {
 		cursorX := 2 + runewidth.StringWidth(gs.userInput)
-		s.ShowCursor(cursorX, 6)
+		r.ShowCursor(cursorX, 6)
 	}
 
-	s.Show()
+	r.Show()
 }
 
 func (t *DiffTheme) OnTick(gs *GameState) {}

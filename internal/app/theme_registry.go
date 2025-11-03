@@ -7,7 +7,7 @@ type Theme interface {
 	// ResetState는 새 라운드를 위해 게임 상태를 초기화합니다.
 	ResetState(*GameState)
 	// UpdateScreen은 현재 게임 상태를 화면에 그립니다.
-	UpdateScreen(tcell.Screen, *GameState)
+	UpdateScreen(*Renderer, *GameState)
 	// OnTick은 실시간 업데이트가 필요할 때 호출됩니다 (예: 애니메이션).
 	OnTick(*GameState)
 }
