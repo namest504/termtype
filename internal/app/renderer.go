@@ -1,6 +1,9 @@
 package app
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
+)
 
 // Renderer는 화면 그리기를 담당하는 헬퍼 구조체입니다.
 type Renderer struct {
@@ -14,9 +17,17 @@ func NewRenderer(s tcell.Screen) *Renderer {
 
 // DrawText는 화면에 텍스트를 그립니다.
 func (r *Renderer) DrawText(x, y int, style tcell.Style, text string) {
-	for i, runeVal := range []rune(text) {
-		r.screen.SetContent(x+i, y, runeVal, nil, style)
+	currentX := x
+	for _, runeVal := range []rune(text) {
+		width := r.DrawRune(currentX, y, runeVal, style)
+		currentX += width
 	}
+}
+
+// DrawRune는 화면에 문자 하나를 그리고 그 너비를 반환합니다.
+func (r *Renderer) DrawRune(x, y int, runeVal rune, style tcell.Style) int {
+	r.screen.SetContent(x, y, runeVal, nil, style)
+	return runewidth.RuneWidth(runeVal)
 }
 
 // Clear는 화면을 지웁니다.

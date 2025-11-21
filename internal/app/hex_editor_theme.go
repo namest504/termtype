@@ -37,11 +37,22 @@ func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		state.StartLine = h / 2
 	}
 
+	t.drawHexDump(renderer, h)
+	t.drawInputOverlay(renderer, gs, state)
+
+	if gs.isFinished {
+		t.drawResult(renderer, gs, h)
+	} else {
+		t.drawCursor(renderer, gs, state)
+	}
+
+	renderer.Show()
+}
+
+func (t *HexTheme) drawHexDump(renderer *Renderer, h int) {
 	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
 	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
-	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
 
 	// 화면 전체에 임의의 헥스 데이터 그리기
 	for y := 0; y < h; y++ {
@@ -60,6 +71,13 @@ func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		renderer.DrawText(10, y, hexStyle, hexStr)
 		renderer.DrawText(62, y, asciiStyle, asciiStr)
 	}
+}
+
+func (t *HexTheme) drawInputOverlay(renderer *Renderer, gs *GameState, state *HexThemeState) {
+	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
+	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
 
 	// 실제 타이핑할 문장을 중앙에 덮어쓰기
 	targetBytes := []byte(gs.targetSentence)
@@ -84,23 +102,26 @@ func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		lineIdx := state.StartLine + (i / 16)
 		charIdx := i % 16
 		style := correctStyle
-		if r != []rune(gs.targetSentence)[i] {
+		if i < len(targetBytes) && r != rune(targetBytes[i]) { // 타겟 바이트와 룬 비교
 			style = incorrectStyle
 		}
-		renderer.SetContent(62+charIdx, lineIdx, []rune(gs.targetSentence)[i], style)
+		if i < len(targetBytes) {
+			renderer.SetContent(62+charIdx, lineIdx, rune(targetBytes[i]), style)
+		}
 	}
+}
 
-	if gs.isFinished {
-		renderer.HideCursor()
-		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-		renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
-	} else {
-		cursorLine := state.StartLine + (len(inputRunes) / 16)
-		cursorCol := len(inputRunes) % 16
-		renderer.ShowCursor(62+cursorCol, cursorLine)
-	}
+func (t *HexTheme) drawCursor(renderer *Renderer, gs *GameState, state *HexThemeState) {
+	inputRunes := []rune(gs.userInput)
+	cursorLine := state.StartLine + (len(inputRunes) / 16)
+	cursorCol := len(inputRunes) % 16
+	renderer.ShowCursor(62+cursorCol, cursorLine)
+}
 
-	renderer.Show()
+func (t *HexTheme) drawResult(renderer *Renderer, gs *GameState, h int) {
+	renderer.HideCursor()
+	resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
+	renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
 }
 
 func (t *HexTheme) OnTick(gs *GameState) {}
