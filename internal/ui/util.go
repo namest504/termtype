@@ -27,7 +27,7 @@ func WrapText(text string, width int) []string {
 				currentLine += " " + word
 			}
 		} else {
-			lines = append(lines, currentLine)
+			lines = append(lines, currentLine+" ")
 			currentLine = word
 		}
 	}
