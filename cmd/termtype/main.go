@@ -9,6 +9,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"termtype/internal/app"
+	"termtype/internal/domain"
+	"termtype/internal/themes"
 )
 
 func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
@@ -17,19 +19,19 @@ func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 	}
 }
 
-func selectTheme(s tcell.Screen) (app.Theme, error) {
-	var themes []string
-	for name := range app.Themes {
-		themes = append(themes, name)
+func selectTheme(s tcell.Screen) (domain.Theme, error) {
+	var themeNames []string
+	for name := range themes.Themes {
+		themeNames = append(themeNames, name)
 	}
-	sort.Slice(themes, func(i, j int) bool {
-		if themes[i] == "log" {
+	sort.Slice(themeNames, func(i, j int) bool {
+		if themeNames[i] == "log" {
 			return true
 		}
-		if themes[j] == "log" {
+		if themeNames[j] == "log" {
 			return false
 		}
-		return themes[i] < themes[j]
+		return themeNames[i] < themeNames[j]
 	})
 
 	selectedIndex := 0
@@ -38,7 +40,7 @@ func selectTheme(s tcell.Screen) (app.Theme, error) {
 		s.Clear()
 		drawText(s, 2, 1, tcell.StyleDefault, "Select a theme:")
 
-		for i, name := range themes {
+		for i, name := range themeNames {
 			style := tcell.StyleDefault
 			if i == selectedIndex {
 				style = style.Reverse(true)
@@ -58,11 +60,11 @@ func selectTheme(s tcell.Screen) (app.Theme, error) {
 					selectedIndex--
 				}
 			case tcell.KeyDown:
-				if selectedIndex < len(themes)-1 {
+				if selectedIndex < len(themeNames)-1 {
 					selectedIndex++
 				}
 			case tcell.KeyEnter:
-				return app.Themes[themes[selectedIndex]], nil
+				return themes.Themes[themeNames[selectedIndex]], nil
 			}
 		}
 	}

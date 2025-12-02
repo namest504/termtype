@@ -1,4 +1,4 @@
-package app
+package themes
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
+	"termtype/internal/domain"
 )
 
 func init() {
@@ -27,9 +28,9 @@ var fakeCode = []string{
 	" }",
 }
 
-func (t *DiffTheme) ResetState(gs *GameState) {
-	gs.resetCommon()
-	gs.targetSentence = gs.sentences[rand.Intn(len(gs.sentences))]
+func (t *DiffTheme) ResetState(gs *domain.GameState) {
+	gs.ResetCommon()
+	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
 
 	state := &DiffThemeState{}
 	state.ContextLines = make([]string, 5)
@@ -37,7 +38,7 @@ func (t *DiffTheme) ResetState(gs *GameState) {
 	gs.CustomState = state
 }
 
-func (t *DiffTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
+func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	state, ok := gs.CustomState.(*DiffThemeState)
 	if !ok {
 		return
@@ -54,15 +55,26 @@ func (t *DiffTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	for i, line := range state.ContextLines {
 		if i == 2 { // 문장이 들어갈 위치
 			plusStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-			renderer.DrawText(0, y, plusStyle, "+ "+gs.targetSentence)
+			renderer.DrawText(0, y, plusStyle, "+ "+gs.TargetSentence)
 
 			// 사용자 입력 피드백
-			for i, r := range []rune(gs.userInput) {
-				style := tcell.StyleDefault.Foreground(tcell.ColorGreen).Background(tcell.ColorDarkGreen)
-				if i < len([]rune(gs.targetSentence)) && r != []rune(gs.targetSentence)[i] {
+			targetRunes := []rune(gs.TargetSentence)
+			inputRunes := []rune(gs.UserInput)
+
+			for i := 0; i < len(targetRunes); i++ {
+				style := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+				if i < len(inputRunes) {
+					if inputRunes[i] != targetRunes[i] {
+						style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
+					}
+				} else {
+					// User hasn't typed this character yet, but it's part of the target
+					// This might be an error state if the user has typed less than target,
+					// or just the remaining characters to type.
+					// The original snippet implies a red background for untyped characters.
 					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
 				}
-				renderer.SetContent(i+2, y, []rune(gs.targetSentence)[i], style)
+				renderer.SetContent(i+2, y, targetRunes[i], style)
 			}
 		} else {
 			renderer.DrawText(0, y, tcell.StyleDefault, " "+line)
@@ -70,16 +82,16 @@ func (t *DiffTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 		y++
 	}
 
-	if gs.isFinished {
+	if gs.IsFinished {
 		renderer.HideCursor()
-		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
+		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.Wpm, gs.Accuracy)
 		renderer.DrawText(0, y+2, tcell.StyleDefault, resultText)
 	} else {
-		cursorX := 2 + runewidth.StringWidth(gs.userInput)
+		cursorX := 2 + runewidth.StringWidth(gs.UserInput)
 		renderer.ShowCursor(cursorX, 6)
 	}
 
 	renderer.Show()
 }
 
-func (t *DiffTheme) OnTick(gs *GameState) {}
+func (t *DiffTheme) OnTick(gs *domain.GameState) {}

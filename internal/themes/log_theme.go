@@ -1,4 +1,4 @@
-package app
+package themes
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
+	"termtype/internal/domain"
+	"termtype/internal/ui"
 )
 
 var logLevels = []string{"INFO", "WARN", "DEBUG", "ERROR"}
@@ -35,8 +37,8 @@ type LogThemeState struct {
 	backgroundLogs []string
 }
 
-func (t *LogTheme) ResetState(gs *GameState) {
-	gs.resetCommon()
+func (t *LogTheme) ResetState(gs *domain.GameState) {
+	gs.ResetCommon()
 
 	// 테마에 맞는 커스텀 상태 초기화
 	logState := &LogThemeState{
@@ -44,15 +46,15 @@ func (t *LogTheme) ResetState(gs *GameState) {
 	}
 	gs.CustomState = logState
 
-	selectedSentence := gs.sentences[rand.Intn(len(gs.sentences))]
+	selectedSentence := domain.Sentences[rand.Intn(len(domain.Sentences))]
 	fullLog, prefix, sentence := formatAsLogLine(selectedSentence)
 
 	logState.targetLogLine = fullLog
 	logState.logPrefix = prefix
-	gs.targetSentence = sentence
+	gs.TargetSentence = sentence
 }
 
-func (t *LogTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
+func (t *LogTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	logState, ok := gs.CustomState.(*LogThemeState)
 	if !ok {
 		return // 상태가 준비되지 않음
@@ -63,7 +65,7 @@ func (t *LogTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	t.drawBackgroundLogs(renderer, gs, logState, h)
 
 	targetY := t.calculateTargetY(h)
-	if !gs.isFinished {
+	if !gs.IsFinished {
 		t.drawTypingLine(renderer, gs, logState, w, targetY)
 	} else {
 		t.drawResultLine(renderer, gs, logState, targetY)
@@ -80,14 +82,14 @@ func (t *LogTheme) calculateTargetY(h int) int {
 	return numLogs + 1
 }
 
-func (t *LogTheme) drawBackgroundLogs(renderer *Renderer, gs *GameState, logState *LogThemeState, h int) {
+func (t *LogTheme) drawBackgroundLogs(renderer domain.Renderer, gs *domain.GameState, logState *LogThemeState, h int) {
 	// 터미널 높이에 맞춰 동적으로 로그 줄 수 조절
 	numLogs := h - 4 // 상단 여백, 타겟 라인, 결과 라인 등을 위한 공간 확보
 	if numLogs < 0 {
 		numLogs = 0
 	}
 	for len(logState.backgroundLogs) < numLogs {
-		newLog, _, _ := formatAsLogLine(gs.sentences[rand.Intn(len(gs.sentences))])
+		newLog, _, _ := formatAsLogLine(domain.Sentences[rand.Intn(len(domain.Sentences))])
 		logState.backgroundLogs = append([]string{newLog}, logState.backgroundLogs...)
 	}
 	if len(logState.backgroundLogs) > numLogs {
@@ -106,7 +108,7 @@ func (t *LogTheme) drawBackgroundLogs(renderer *Renderer, gs *GameState, logStat
 	}
 }
 
-func (t *LogTheme) drawTypingLine(renderer *Renderer, gs *GameState, logState *LogThemeState, w, targetY int) {
+func (t *LogTheme) drawTypingLine(renderer domain.Renderer, gs *domain.GameState, logState *LogThemeState, w, targetY int) {
 	prefixStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	if strings.Contains(logState.logPrefix, "[ERROR]") {
 		prefixStyle = tcell.StyleDefault.Foreground(tcell.ColorRed)
@@ -117,8 +119,8 @@ func (t *LogTheme) drawTypingLine(renderer *Renderer, gs *GameState, logState *L
 
 	prefixWidth := runewidth.StringWidth(logState.logPrefix)
 
-	tr := &TypingRenderer{}
-	tr.Draw(renderer, gs, TypingRendererOptions{
+	tr := &ui.TypingRenderer{}
+	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      targetY,
 		Width:       w - 1, // 전체 너비에서 왼쪽 여백 1을 뺀 값 (PrefixWidth는 내부에서 처리됨)
 		PrefixWidth: prefixWidth,
@@ -126,11 +128,11 @@ func (t *LogTheme) drawTypingLine(renderer *Renderer, gs *GameState, logState *L
 	})
 }
 
-func (t *LogTheme) drawResultLine(renderer *Renderer, gs *GameState, logState *LogThemeState, targetY int) {
+func (t *LogTheme) drawResultLine(renderer domain.Renderer, gs *domain.GameState, logState *LogThemeState, targetY int) {
 	renderer.HideCursor()
 	renderer.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
 
-	resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.wpm, gs.accuracy)
+	resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.Wpm, gs.Accuracy)
 	renderer.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
 
 	guideText := "Press Enter to continue or ESC to exit."
@@ -138,14 +140,14 @@ func (t *LogTheme) drawResultLine(renderer *Renderer, gs *GameState, logState *L
 }
 
 // OnTick은 LogTheme에 실시간 스크롤 효과를 줍니다.
-func (t *LogTheme) OnTick(gs *GameState) {
+func (t *LogTheme) OnTick(gs *domain.GameState) {
 	logState, ok := gs.CustomState.(*LogThemeState)
 	if !ok {
 		return
 	}
 
 	// 새 로그를 추가하고 가장 오래된 로그를 제거
-	newLog, _, _ := formatAsLogLine(gs.sentences[rand.Intn(len(gs.sentences))])
+	newLog, _, _ := formatAsLogLine(domain.Sentences[rand.Intn(len(domain.Sentences))])
 	logState.backgroundLogs = append(logState.backgroundLogs[1:], newLog)
 }
 

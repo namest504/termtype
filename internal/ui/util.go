@@ -1,4 +1,4 @@
-package app
+package ui
 
 import (
 	"strings"
@@ -6,8 +6,8 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// wrapText는 주어진 텍스트를 지정된 너비에 맞춰 여러 줄로 나눕니다.
-func wrapText(text string, width int) []string {
+// WrapText는 주어진 텍스트를 지정된 너비에 맞춰 여러 줄로 나눕니다.
+func WrapText(text string, width int) []string {
 	var lines []string
 	if width <= 0 {
 		return []string{text}

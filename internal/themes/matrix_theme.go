@@ -1,10 +1,12 @@
-package app
+package themes
 
 import (
 	"fmt"
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
+	"termtype/internal/domain"
+	"termtype/internal/ui"
 )
 
 func init() {
@@ -30,9 +32,9 @@ type MatrixThemeState struct {
 
 var matrixChars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:'\",./<>?")
 
-func (t *MatrixTheme) ResetState(gs *GameState) {
-	gs.resetCommon()
-	gs.targetSentence = gs.sentences[rand.Intn(len(gs.sentences))]
+func (t *MatrixTheme) ResetState(gs *domain.GameState) {
+	gs.ResetCommon()
+	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
 
 	// MatrixThemeState를 초기화하지 않았으면 새로 만듭니다.
 	if _, ok := gs.CustomState.(*MatrixThemeState); !ok {
@@ -40,7 +42,7 @@ func (t *MatrixTheme) ResetState(gs *GameState) {
 	}
 }
 
-func (t *MatrixTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
+func (t *MatrixTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	matrixState, ok := gs.CustomState.(*MatrixThemeState)
 	if !ok {
 		return // 상태가 아직 준비되지 않음
@@ -55,7 +57,7 @@ func (t *MatrixTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	// 텍스트를 그릴 시작 Y 좌표
 	startY := h/2 - 2
 
-	if !gs.isFinished {
+	if !gs.IsFinished {
 		t.drawTypingArea(renderer, gs, w, startY)
 	} else {
 		t.drawResultArea(renderer, gs, w, startY)
@@ -75,7 +77,7 @@ func (t *MatrixTheme) initializeRaindrops(matrixState *MatrixThemeState, w, h in
 	}
 }
 
-func (t *MatrixTheme) drawRaindrops(renderer *Renderer, matrixState *MatrixThemeState, w, h int) {
+func (t *MatrixTheme) drawRaindrops(renderer domain.Renderer, matrixState *MatrixThemeState, w, h int) {
 	// 배경을 검은색으로 채웁니다.
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
@@ -102,9 +104,9 @@ func (t *MatrixTheme) drawRaindrops(renderer *Renderer, matrixState *MatrixTheme
 	}
 }
 
-func (t *MatrixTheme) drawTypingArea(renderer *Renderer, gs *GameState, w, startY int) {
-	tr := &TypingRenderer{}
-	tr.Draw(renderer, gs, TypingRendererOptions{
+func (t *MatrixTheme) drawTypingArea(renderer domain.Renderer, gs *domain.GameState, w, startY int) {
+	tr := &ui.TypingRenderer{}
+	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      startY,
 		Width:       w - 4, // 좌우 패딩 2씩
 		PrefixWidth: 0,
@@ -112,16 +114,16 @@ func (t *MatrixTheme) drawTypingArea(renderer *Renderer, gs *GameState, w, start
 	})
 }
 
-func (t *MatrixTheme) drawResultArea(renderer *Renderer, gs *GameState, w, startY int) {
+func (t *MatrixTheme) drawResultArea(renderer domain.Renderer, gs *domain.GameState, w, startY int) {
 	// Y 좌표 계산을 위해 줄바꿈된 텍스트 길이 필요 (재계산)
-	wrappedTarget := wrapText(gs.targetSentence, w-4)
+	wrappedTarget := ui.WrapText(gs.TargetSentence, w-4)
 
 	renderer.HideCursor()
-	resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
+	resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.Wpm, gs.Accuracy)
 	renderer.DrawText((w-len(resultText))/2, startY+len(wrappedTarget)+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 }
 
-func (t *MatrixTheme) OnTick(gs *GameState) {
+func (t *MatrixTheme) OnTick(gs *domain.GameState) {
 	matrixState, ok := gs.CustomState.(*MatrixThemeState)
 	if !ok || matrixState.drops == nil {
 		return

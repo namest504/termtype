@@ -1,10 +1,11 @@
-package app
+package themes
 
 import (
 	"fmt"
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
+	"termtype/internal/domain"
 )
 
 func init() {
@@ -18,13 +19,13 @@ type HexThemeState struct {
 	StartLine int
 }
 
-func (t *HexTheme) ResetState(gs *GameState) {
-	gs.resetCommon()
-	gs.targetSentence = gs.sentences[rand.Intn(len(gs.sentences))]
+func (t *HexTheme) ResetState(gs *domain.GameState) {
+	gs.ResetCommon()
+	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
 	gs.CustomState = &HexThemeState{StartLine: -1} // StartLine을 -1로 초기화하여 첫 UpdateScreen에서 설정하도록 함
 }
 
-func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
+func (t *HexTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	state, ok := gs.CustomState.(*HexThemeState)
 	if !ok {
 		return
@@ -40,7 +41,7 @@ func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	t.drawHexDump(renderer, h)
 	t.drawInputOverlay(renderer, gs, state)
 
-	if gs.isFinished {
+	if gs.IsFinished {
 		t.drawResult(renderer, gs, h)
 	} else {
 		t.drawCursor(renderer, gs, state)
@@ -49,7 +50,7 @@ func (t *HexTheme) UpdateScreen(renderer *Renderer, gs *GameState) {
 	renderer.Show()
 }
 
-func (t *HexTheme) drawHexDump(renderer *Renderer, h int) {
+func (t *HexTheme) drawHexDump(renderer domain.Renderer, h int) {
 	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
 	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
@@ -73,14 +74,14 @@ func (t *HexTheme) drawHexDump(renderer *Renderer, h int) {
 	}
 }
 
-func (t *HexTheme) drawInputOverlay(renderer *Renderer, gs *GameState, state *HexThemeState) {
+func (t *HexTheme) drawInputOverlay(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState) {
 	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
 
-	// 실제 타이핑할 문장을 중앙에 덮어쓰기
-	targetBytes := []byte(gs.targetSentence)
+	// 타겟 문장을 16바이트씩 끊어서 표시
+	targetBytes := []byte(gs.TargetSentence)
 	for i, b := range targetBytes {
 		lineIdx := state.StartLine + (i / 16)
 		charIdx := i % 16
@@ -97,12 +98,12 @@ func (t *HexTheme) drawInputOverlay(renderer *Renderer, gs *GameState, state *He
 	}
 
 	// 사용자 입력 피드백
-	inputRunes := []rune(gs.userInput)
-	for i, r := range inputRunes {
+	inputBytes := []byte(gs.UserInput)
+	for i, r := range inputBytes {
 		lineIdx := state.StartLine + (i / 16)
 		charIdx := i % 16
 		style := correctStyle
-		if i < len(targetBytes) && r != rune(targetBytes[i]) { // 타겟 바이트와 룬 비교
+		if i < len(targetBytes) && r != targetBytes[i] { // 타겟 바이트와 룬 비교
 			style = incorrectStyle
 		}
 		if i < len(targetBytes) {
@@ -111,17 +112,30 @@ func (t *HexTheme) drawInputOverlay(renderer *Renderer, gs *GameState, state *He
 	}
 }
 
-func (t *HexTheme) drawCursor(renderer *Renderer, gs *GameState, state *HexThemeState) {
-	inputRunes := []rune(gs.userInput)
+func (t *HexTheme) drawCursor(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState) {
+	inputRunes := []rune(gs.UserInput)
 	cursorLine := state.StartLine + (len(inputRunes) / 16)
 	cursorCol := len(inputRunes) % 16
 	renderer.ShowCursor(62+cursorCol, cursorLine)
 }
 
-func (t *HexTheme) drawResult(renderer *Renderer, gs *GameState, h int) {
-	renderer.HideCursor()
-	resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.wpm, gs.accuracy)
-	renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
+func (t *HexTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, h int) {
+	if gs.IsFinished {
+		renderer.HideCursor()
+		resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.Wpm, gs.Accuracy)
+		renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
+	} else {
+		// 커서 위치 계산 (단순화: 입력 길이에 따라)
+		// 실제로는 Hex 영역과 ASCII 영역 중 어디에 커서를 둘지 결정해야 함
+		// 여기서는 ASCII 영역 끝에 둠
+		cursorIdx := len(gs.UserInput)
+		row := cursorIdx / 16
+		col := cursorIdx % 16
+		cursorX := 52 + col // ASCII 영역 시작(52) + 컬럼
+		cursorY := 2 + row
+		renderer.ShowCursor(cursorX, cursorY)
+	}
 }
 
-func (t *HexTheme) OnTick(gs *GameState) {}
+func (t *HexTheme) OnTick(gs *domain.GameState) {}
+

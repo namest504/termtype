@@ -1,8 +1,9 @@
-package app
+package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
+	"termtype/internal/domain"
 )
 
 // TypingRendererOptions 타이핑 영역 렌더링 옵션
@@ -21,7 +22,7 @@ type TypingRendererOptions struct {
 type TypingRenderer struct{}
 
 // Draw 대상 문장, 사용자 입력, 커서 렌더링
-func (tr *TypingRenderer) Draw(renderer *Renderer, gs *GameState, opts TypingRendererOptions) {
+func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, opts TypingRendererOptions) {
 	// 텍스트 가용 너비 계산
 	availableWidth := opts.Width
 	if !opts.CenterText {
@@ -29,8 +30,12 @@ func (tr *TypingRenderer) Draw(renderer *Renderer, gs *GameState, opts TypingRen
 	}
 
 	// 텍스트 줄바꿈
-	wrappedTarget := wrapText(gs.targetSentence, availableWidth)
-	inputRunes := []rune(gs.userInput)
+	// CenterText가 아닐 경우 오른쪽 패딩 확보 (2~3칸)
+	if !opts.CenterText {
+		availableWidth -= 3
+	}
+	wrappedTarget := WrapText(gs.TargetSentence, availableWidth)
+	inputRunes := []rune(gs.UserInput)
 	inputOffset := 0
 
 	// 텍스트 그리기
@@ -81,7 +86,7 @@ func (tr *TypingRenderer) Draw(renderer *Renderer, gs *GameState, opts TypingRen
 	tr.drawCursor(renderer, wrappedTarget, inputRunes, opts)
 }
 
-func (tr *TypingRenderer) drawCursor(renderer *Renderer, wrappedTarget []string, inputRunes []rune, opts TypingRendererOptions) {
+func (tr *TypingRenderer) drawCursor(renderer domain.Renderer, wrappedTarget []string, inputRunes []rune, opts TypingRendererOptions) {
 	cursorLineIdx := 0
 	cursorX := 1 + opts.PrefixWidth
 	if opts.CenterText {
