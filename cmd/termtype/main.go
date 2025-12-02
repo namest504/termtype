@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"sort"
 	"time"
 
@@ -12,6 +14,8 @@ import (
 	"termtype/internal/domain"
 	"termtype/internal/themes"
 )
+
+var version = "dev"
 
 func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 	for i, r := range []rune(text) {
@@ -71,6 +75,15 @@ func selectTheme(s tcell.Screen) (domain.Theme, error) {
 }
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print version information")
+	vFlag := flag.Bool("v", false, "Print version information (shorthand)")
+	flag.Parse()
+
+	if *versionFlag || *vFlag {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	rand.Seed(time.Now().UnixNano())
 
 	// 화면 초기화
