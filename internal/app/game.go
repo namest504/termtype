@@ -45,15 +45,34 @@ func (g *Game) Run() {
 			switch ev := ev.(type) {
 			case *tcell.EventResize:
 				g.screen.Sync()
-				g.theme.UpdateScreen(g.renderer, g.state)
+				w, _ := g.screen.Size()
+				if w < 40 {
+					g.screen.Clear()
+					g.renderer.DrawText(1, 1, tcell.StyleDefault.Foreground(tcell.ColorRed), "Terminal too small (min width: 40)")
+					g.screen.Show()
+				} else {
+					g.theme.UpdateScreen(g.renderer, g.state)
+				}
 			case *tcell.EventKey:
-				g.handleKeyEvent(ev)
-				g.theme.UpdateScreen(g.renderer, g.state)
+				w, _ := g.screen.Size()
+				if w < 40 {
+					// Do not process keys if screen is too small, except ESC
+					if ev.Key() == tcell.KeyEscape {
+						g.screen.Fini()
+						os.Exit(0)
+					}
+				} else {
+					g.handleKeyEvent(ev)
+					g.theme.UpdateScreen(g.renderer, g.state)
+				}
 			}
 		case <-ticker.C:
-			if !g.state.IsFinished {
-				g.theme.OnTick(g.state)
-				g.theme.UpdateScreen(g.renderer, g.state)
+			w, _ := g.screen.Size()
+			if w >= 40 {
+				if !g.state.IsFinished {
+					g.theme.OnTick(g.state)
+					g.theme.UpdateScreen(g.renderer, g.state)
+				}
 			}
 		}
 	}
