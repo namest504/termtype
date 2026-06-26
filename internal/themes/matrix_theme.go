@@ -1,7 +1,6 @@
 package themes
 
 import (
-	"fmt"
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
@@ -13,10 +12,10 @@ func init() {
 	Themes["matrix"] = &MatrixTheme{}
 }
 
-// MatrixTheme은 떨어지는 글자 효과를 구현합니다.
+// MatrixTheme implements the falling-character effect.
 type MatrixTheme struct{}
 
-// Matrix의 각 "빗방울"의 상태
+// Raindrop is the state of each "raindrop" in the Matrix effect.
 type Raindrop struct {
 	X, Y   int
 	Speed  int
@@ -24,7 +23,7 @@ type Raindrop struct {
 	Length int
 }
 
-// Matrix 테마의 전체 상태
+// MatrixThemeState is the overall state of the Matrix theme.
 type MatrixThemeState struct {
 	drops         []*Raindrop
 	width, height int
@@ -36,7 +35,7 @@ func (t *MatrixTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
 	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
 
-	// MatrixThemeState를 초기화하지 않았으면 새로 만듭니다.
+	// Create a new MatrixThemeState if one hasn't been initialized.
 	if _, ok := gs.CustomState.(*MatrixThemeState); !ok {
 		gs.CustomState = &MatrixThemeState{}
 	}
@@ -45,7 +44,7 @@ func (t *MatrixTheme) ResetState(gs *domain.GameState) {
 func (t *MatrixTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	matrixState, ok := gs.CustomState.(*MatrixThemeState)
 	if !ok {
-		return // 상태가 아직 준비되지 않음
+		return // state is not ready yet
 	}
 
 	renderer.Clear()
@@ -54,7 +53,7 @@ func (t *MatrixTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 	t.initializeRaindrops(matrixState, w, h)
 	t.drawRaindrops(renderer, matrixState, w, h)
 
-	// 텍스트를 그릴 시작 Y 좌표
+	// Starting Y coordinate for drawing the text.
 	startY := h/2 - 2
 
 	if !gs.IsFinished {
@@ -78,14 +77,14 @@ func (t *MatrixTheme) initializeRaindrops(matrixState *MatrixThemeState, w, h in
 }
 
 func (t *MatrixTheme) drawRaindrops(renderer domain.Renderer, matrixState *MatrixThemeState, w, h int) {
-	// 배경을 검은색으로 채웁니다.
+	// Fill the background with black.
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
 			renderer.SetContent(x, y, ' ', tcell.StyleDefault.Background(tcell.ColorBlack))
 		}
 	}
 
-	// 빗방울을 그립니다.
+	// Draw the raindrops.
 	for _, drop := range matrixState.drops {
 		for i := 0; i < drop.Length; i++ {
 			y := drop.Y - i
@@ -108,18 +107,18 @@ func (t *MatrixTheme) drawTypingArea(renderer domain.Renderer, gs *domain.GameSt
 	tr := &ui.TypingRenderer{}
 	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      startY,
-		Width:       w - 4, // 좌우 패딩 2씩
+		Width:       w - 4, // 2 cells of padding on each side
 		PrefixWidth: 0,
 		CenterText:  true,
 	})
 }
 
 func (t *MatrixTheme) drawResultArea(renderer domain.Renderer, gs *domain.GameState, w, startY int) {
-	// Y 좌표 계산을 위해 줄바꿈된 텍스트 길이 필요 (재계산)
+	// The wrapped text length is needed to compute the Y coordinate (recalculated).
 	wrappedTarget := ui.WrapText(gs.TargetSentence, w-4)
 
 	renderer.HideCursor()
-	resultText := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.Wpm, gs.Accuracy)
+	resultText := ui.ResultText(gs)
 	renderer.DrawText((w-len(resultText))/2, startY+len(wrappedTarget)+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 }
 
@@ -134,7 +133,7 @@ func (t *MatrixTheme) OnTick(gs *domain.GameState) {
 		if drop.Y-drop.Length > matrixState.height {
 			drop.Y = 0
 		}
-		// 빗방울의 문자 내용을 계속 바꿔줍니다.
+		// Keep changing the raindrop's character content.
 		drop.Chars = append(drop.Chars, matrixChars[rand.Intn(len(matrixChars))])
 		if len(drop.Chars) > 50 {
 			drop.Chars = drop.Chars[1:]

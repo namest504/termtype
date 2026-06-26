@@ -1,7 +1,6 @@
 package themes
 
 import (
-	"fmt"
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
@@ -25,7 +24,7 @@ func (t *SimpleTheme) ResetState(gs *domain.GameState) {
 func (t *SimpleTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	renderer.Clear()
 
-	// 텍스트를 그릴 시작 Y 좌표
+	// Starting Y coordinate for drawing text
 	startY := 1
 
 	if !gs.IsFinished {
@@ -42,7 +41,7 @@ func (t *SimpleTheme) drawTypingScreen(renderer domain.Renderer, gs *domain.Game
 	tr := &ui.TypingRenderer{}
 	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      startY,
-		Width:       w - 2, // 좌우 패딩 1씩
+		Width:       w - 2, // 1 padding on each side
 		PrefixWidth: 0,
 		CenterText:  false,
 	})
@@ -52,7 +51,7 @@ func (t *SimpleTheme) drawTypingScreen(renderer domain.Renderer, gs *domain.Game
 func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.GameState, startY int) {
 	renderer.HideCursor()
 	defStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
-	resultText1 := fmt.Sprintf("WPM: %.2f | Accuracy: %.2f%%", gs.Wpm, gs.Accuracy)
+	resultText1 := ui.ResultText(gs)
 	resultText2 := "Press Enter to continue or ESC to exit."
 	renderer.DrawText(1, startY, defStyle, resultText1)
 	renderer.DrawText(1, startY+2, defStyle, resultText2)
