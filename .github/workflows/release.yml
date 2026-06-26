@@ -17,17 +17,18 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: '1.25'
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: '~> v2'
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # tap 저장소(homebrew-termtype)에 formula를 푸시하려면 별도 PAT가 필요합니다.
-          # repo 권한이 있는 토큰을 termtype 저장소 Secrets에 HOMEBREW_TAP_GITHUB_TOKEN으로 등록하세요.
+          # A separate PAT is required to push the formula to the tap repo
+          # (homebrew-termtype). Register it as the HOMEBREW_TAP_GITHUB_TOKEN
+          # secret on the termtype repository.
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
