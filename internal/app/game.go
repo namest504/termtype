@@ -43,6 +43,8 @@ func (g *Game) Run() {
 		select {
 		case ev := <-eventChan:
 			switch ev := ev.(type) {
+			case *tcell.EventPaste:
+				// Pasting is intentionally ignored — type the text yourself.
 			case *tcell.EventResize:
 				g.screen.Sync()
 				w, _ := g.screen.Size()
@@ -56,8 +58,8 @@ func (g *Game) Run() {
 			case *tcell.EventKey:
 				w, _ := g.screen.Size()
 				if w < 40 {
-					// Do not process keys if screen is too small, except ESC
-					if ev.Key() == tcell.KeyEscape {
+					// Do not process keys if screen is too small, except quit keys
+					if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 						g.screen.Fini()
 						os.Exit(0)
 					}
@@ -80,7 +82,7 @@ func (g *Game) Run() {
 
 // Handle key events
 func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
-	if ev.Key() == tcell.KeyEscape {
+	if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 		g.screen.Fini()
 		os.Exit(0)
 	}

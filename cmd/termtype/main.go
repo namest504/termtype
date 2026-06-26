@@ -53,6 +53,8 @@ func selectTheme(s tcell.Screen) (domain.Theme, error) {
 
 		ev := s.PollEvent()
 		switch ev := ev.(type) {
+		case *tcell.EventResize:
+			s.Sync()
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyEscape, tcell.KeyCtrlC:
@@ -90,6 +92,9 @@ func main() {
 	if err := s.Init(); err != nil {
 		log.Fatalf("%+v", err)
 	}
+	// Restore the terminal on any return path or panic in the game loop.
+	defer s.Fini()
+
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 	s.SetStyle(defStyle)
 	s.EnablePaste()
@@ -98,15 +103,13 @@ func main() {
 	// Select theme
 	theme, err := selectTheme(s)
 	if err != nil {
-		s.Fini()
-		fmt.Println(err)
-		return
+		return // user cancelled; the deferred Fini restores the terminal
 	}
 
 	// Create and run the game
 	game, err := app.NewGame(s, theme)
 	if err != nil {
-		log.Fatalf("%+v", err)
+		return
 	}
 
 	game.Run()
