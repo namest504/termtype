@@ -2,6 +2,8 @@
 
 A simple typing practice application for your terminal.
 
+![TermType — the claude theme](docs/termtype-claude.gif)
+
 ## Installation
 
 ### Homebrew
@@ -30,3 +32,11 @@ Select a theme from the interactive menu.
 - `claude`: A theme that looks like composing a message in a Claude Code session.
 
 All themes adapt to the terminal size and reflow as you resize the window.
+
+### In action
+
+The `matrix` and `log` themes:
+
+![matrix theme](docs/termtype-matrix.gif)
+
+![log theme](docs/termtype-log.gif)
