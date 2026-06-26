@@ -1,3 +1,9 @@
 /.idea/
 docs/CUSTOM_THEMES.md
 docs/task.md
+
+# GoReleaser build output
+/dist/
+
+# Locally built binary
+/termtype

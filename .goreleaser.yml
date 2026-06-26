@@ -1,4 +1,6 @@
 # .goreleaser.yml
+version: 2
+
 builds:
   - main: ./cmd/termtype/
     binary: termtype
@@ -10,16 +12,38 @@ builds:
     goarch:
       - amd64
       - arm64
+
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
 checksum:
   name_template: 'checksums.txt'
+
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
+
 changelog:
   sort: asc
   filters:
     exclude:
       - '^docs:'
       - '^test:'
+
+# 릴리스 시 Homebrew formula를 자동 생성해 tap 저장소(homebrew-termtype)에 푸시합니다.
+# 생성되는 formula는 미리 빌드된 바이너리를 설치하므로 사용자 PC에 Go가 필요 없습니다.
+brews:
+  - name: termtype
+    repository:
+      owner: namest504
+      name: homebrew-termtype
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/namest504/termtype"
+    description: "A simple typing practice application for your terminal."
+    license: "MIT"
+    install: |
+      bin.install "termtype"
+    test: |
+      system "#{bin}/termtype", "--version"

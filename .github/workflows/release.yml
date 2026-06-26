@@ -28,3 +28,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # tap 저장소(homebrew-termtype)에 formula를 푸시하려면 별도 PAT가 필요합니다.
+          # repo 권한이 있는 토큰을 termtype 저장소 Secrets에 HOMEBREW_TAP_GITHUB_TOKEN으로 등록하세요.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
