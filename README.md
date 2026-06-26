@@ -14,13 +14,21 @@ brew install namest504/termtype/termtype
 
 ## Usage
 
-Run the application:
-
 ```bash
 termtype
 ```
 
-Select a theme from the interactive menu.
+Pick a theme with `↑`/`↓` and a mode with `Tab`, then press `Enter`:
+
+- **Normal** — type the sentence; WPM and accuracy are shown when you finish.
+- **Time Attack** — race a 30s or 60s countdown and type as much as you can
+  before time runs out.
+
+### Controls
+
+- `Ctrl-P` — pause / resume
+- `Enter` — next sentence (after finishing)
+- `Esc` / `Ctrl-C` — quit
 
 ## Available Themes
 

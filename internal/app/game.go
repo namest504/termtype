@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -17,9 +18,9 @@ type Game struct {
 	theme    domain.Theme
 }
 
-// Create a new game
-func NewGame(s tcell.Screen, theme domain.Theme) (*Game, error) {
-	state := &domain.GameState{Sentences: domain.Sentences}
+// Create a new game. timeLimit > 0 enables time-attack mode.
+func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration) (*Game, error) {
+	state := &domain.GameState{Sentences: domain.Sentences, TimeLimit: timeLimit}
 	theme.ResetState(state)
 
 	return &Game{screen: s, renderer: ui.NewRenderer(s), state: state, theme: theme}, nil
@@ -37,7 +38,7 @@ func (g *Game) Run() {
 		}
 	}()
 
-	g.theme.UpdateScreen(g.renderer, g.state)
+	g.render()
 
 	for {
 		select {
@@ -53,7 +54,7 @@ func (g *Game) Run() {
 					g.renderer.DrawText(1, 1, tcell.StyleDefault.Foreground(tcell.ColorRed), "Terminal too small (min width: 40)")
 					g.screen.Show()
 				} else {
-					g.theme.UpdateScreen(g.renderer, g.state)
+					g.render()
 				}
 			case *tcell.EventKey:
 				w, _ := g.screen.Size()
@@ -65,18 +66,71 @@ func (g *Game) Run() {
 					}
 				} else {
 					g.handleKeyEvent(ev)
-					g.theme.UpdateScreen(g.renderer, g.state)
+					g.render()
 				}
 			}
 		case <-ticker.C:
 			w, _ := g.screen.Size()
-			if w >= 40 {
-				if !g.state.IsFinished {
-					g.theme.OnTick(g.state)
-					g.theme.UpdateScreen(g.renderer, g.state)
+			if w >= 40 && !g.state.IsFinished {
+				if !g.state.Paused {
+					if g.state.TimeLimit > 0 && g.state.TimerStarted && g.state.Remaining() <= 0 {
+						g.state.TimedOut = true
+						g.state.Finalize()
+					} else {
+						g.theme.OnTick(g.state)
+					}
 				}
+				g.render()
 			}
 		}
+	}
+}
+
+// render draws the current theme plus the mode overlays (time-attack countdown
+// and pause banner) on top.
+func (g *Game) render() {
+	g.theme.UpdateScreen(g.renderer, g.state)
+	g.drawOverlay()
+	g.screen.Show()
+}
+
+func (g *Game) drawOverlay() {
+	w, h := g.screen.Size()
+
+	if g.state.TimeLimit > 0 {
+		var label string
+		var style tcell.Style
+		switch {
+		case g.state.IsFinished && g.state.TimedOut:
+			label = " ⏱ TIME UP "
+			style = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorMaroon)
+		case g.state.IsFinished:
+			label = " ⏱ DONE "
+			style = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorGreen)
+		default:
+			secs := int(g.state.Remaining().Seconds() + 0.999)
+			label = fmt.Sprintf(" ⏱ %d:%02d ", secs/60, secs%60)
+			if secs <= 5 {
+				style = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorRed)
+			} else {
+				style = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorYellow)
+			}
+		}
+		x := w - len([]rune(label))
+		if x < 0 {
+			x = 0
+		}
+		g.renderer.DrawText(x, 0, style, label)
+	}
+
+	if g.state.Paused {
+		msg := " ⏸  PAUSED — Ctrl-P to resume "
+		style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlue)
+		x := (w - len([]rune(msg))) / 2
+		if x < 0 {
+			x = 0
+		}
+		g.renderer.DrawText(x, h/2, style, msg)
 	}
 }
 
@@ -85,6 +139,15 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 	if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 		g.screen.Fini()
 		os.Exit(0)
+	}
+
+	// Ctrl-P toggles pause; while paused, all other input is ignored.
+	if ev.Key() == tcell.KeyCtrlP {
+		g.state.TogglePause()
+		return
+	}
+	if g.state.Paused {
+		return
 	}
 
 	if g.state.IsFinished {
@@ -108,31 +171,8 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 		g.state.UserInput += string(ev.Rune())
 	}
 
-	// Check typing completion (compare by runes, not bytes)
-	inputRunes := []rune(g.state.UserInput)
-	targetRunes := []rune(g.state.TargetSentence)
-	if len(inputRunes) >= len(targetRunes) {
-		g.state.IsFinished = true
-		duration := time.Since(g.state.StartTime).Minutes()
-
-		// Trim input beyond the target length at rune boundaries
-		if len(inputRunes) > len(targetRunes) {
-			inputRunes = inputRunes[:len(targetRunes)]
-			g.state.UserInput = string(inputRunes)
-		}
-
-		if duration > 0 {
-			g.state.Wpm = (float64(len(inputRunes)) / 5.0) / duration
-		}
-
-		correctChars := 0
-		for i, r := range targetRunes {
-			if i < len(inputRunes) && inputRunes[i] == r {
-				correctChars++
-			}
-		}
-		if len(targetRunes) > 0 {
-			g.state.Accuracy = (float64(correctChars) / float64(len(targetRunes))) * 100
-		}
+	// Finalize once the whole sentence has been typed (rune count, not bytes).
+	if len([]rune(g.state.UserInput)) >= len([]rune(g.state.TargetSentence)) {
+		g.state.Finalize()
 	}
 }
