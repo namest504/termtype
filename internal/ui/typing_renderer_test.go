@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"testing"
 	"termtype/internal/domain"
+	"testing"
 
 	"github.com/gdamore/tcell/v2"
 )

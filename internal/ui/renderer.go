@@ -5,17 +5,17 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// Renderer는 화면 그리기를 담당하는 헬퍼 구조체입니다.
+// Renderer is a helper struct responsible for drawing to the screen.
 type Renderer struct {
 	screen tcell.Screen
 }
 
-// NewRenderer는 새로운 Renderer 인스턴스를 생성합니다.
+// NewRenderer creates a new Renderer instance.
 func NewRenderer(s tcell.Screen) *Renderer {
 	return &Renderer{screen: s}
 }
 
-// DrawText는 화면에 텍스트를 그립니다.
+// DrawText draws text on the screen.
 func (r *Renderer) DrawText(x, y int, style tcell.Style, text string) {
 	currentX := x
 	for _, runeVal := range []rune(text) {
@@ -24,38 +24,38 @@ func (r *Renderer) DrawText(x, y int, style tcell.Style, text string) {
 	}
 }
 
-// DrawRune는 화면에 문자 하나를 그리고 그 너비를 반환합니다.
+// DrawRune draws a single character on the screen and returns its width.
 func (r *Renderer) DrawRune(x, y int, runeVal rune, style tcell.Style) int {
 	r.screen.SetContent(x, y, runeVal, nil, style)
 	return runewidth.RuneWidth(runeVal)
 }
 
-// Clear는 화면을 지웁니다.
+// Clear clears the screen.
 func (r *Renderer) Clear() {
 	r.screen.Clear()
 }
 
-// ShowCursor는 커서를 표시합니다.
+// ShowCursor shows the cursor.
 func (r *Renderer) ShowCursor(x, y int) {
 	r.screen.ShowCursor(x, y)
 }
 
-// HideCursor는 커서를 숨깁니다.
+// HideCursor hides the cursor.
 func (r *Renderer) HideCursor() {
 	r.screen.HideCursor()
 }
 
-// Show는 화면을 업데이트합니다.
+// Show updates the screen.
 func (r *Renderer) Show() {
 	r.screen.Show()
 }
 
-// Size는 화면 크기를 반환합니다.
+// Size returns the screen size.
 func (r *Renderer) Size() (int, int) {
 	return r.screen.Size()
 }
 
-// SetContent는 화면의 특정 위치에 문자를 설정합니다.
+// SetContent sets the character at a specific position on the screen.
 func (r *Renderer) SetContent(x, y int, runeVal rune, style tcell.Style) {
 	r.screen.SetContent(x, y, runeVal, nil, style)
 }

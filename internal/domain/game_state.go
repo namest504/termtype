@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// GameState 게임 상태를 관리하는 구조체
+// GameState is the struct that manages the game state
 type GameState struct {
 	Sentences      []string
 	TargetSentence string
@@ -15,11 +15,11 @@ type GameState struct {
 	Wpm            float64
 	Accuracy       float64
 
-	// 테마별 커스텀 상태
+	// Per-theme custom state
 	CustomState interface{}
 }
 
-// ResetCommon 공통 리셋 로직
+// ResetCommon holds the common reset logic
 func (gs *GameState) ResetCommon() {
 	gs.UserInput = ""
 	gs.TimerStarted = false

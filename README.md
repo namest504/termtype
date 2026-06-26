@@ -7,8 +7,7 @@ A simple typing practice application for your terminal.
 ### Homebrew
 
 ```bash
-brew tap namest504/termtype
-brew install termtype
+brew install namest504/termtype/termtype
 ```
 
 ## Usage
@@ -28,3 +27,6 @@ Select a theme from the interactive menu.
 - `matrix`: A theme inspired by The Matrix.
 - `hex`: A theme that mimics a hex editor.
 - `diff`: A theme that looks like a git diff.
+- `claude`: A theme that looks like composing a message in a Claude Code session.
+
+All themes adapt to the terminal size and reflow as you resize the window.
