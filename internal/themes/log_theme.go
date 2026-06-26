@@ -46,7 +46,7 @@ func (t *LogTheme) ResetState(gs *domain.GameState) {
 	}
 	gs.CustomState = logState
 
-	selectedSentence := domain.Sentences[rand.Intn(len(domain.Sentences))]
+	selectedSentence := gs.RandomSentence()
 	fullLog, prefix, sentence := formatAsLogLine(selectedSentence)
 
 	logState.targetLogLine = fullLog
@@ -89,7 +89,7 @@ func (t *LogTheme) drawBackgroundLogs(renderer domain.Renderer, gs *domain.GameS
 		numLogs = 0
 	}
 	for len(logState.backgroundLogs) < numLogs {
-		newLog, _, _ := formatAsLogLine(domain.Sentences[rand.Intn(len(domain.Sentences))])
+		newLog, _, _ := formatAsLogLine(gs.RandomSentence())
 		logState.backgroundLogs = append([]string{newLog}, logState.backgroundLogs...)
 	}
 	if len(logState.backgroundLogs) > numLogs {
@@ -152,7 +152,7 @@ func (t *LogTheme) OnTick(gs *domain.GameState) {
 	}
 
 	// Append a new log and remove the oldest one.
-	newLog, _, _ := formatAsLogLine(domain.Sentences[rand.Intn(len(domain.Sentences))])
+	newLog, _, _ := formatAsLogLine(gs.RandomSentence())
 	logState.backgroundLogs = append(logState.backgroundLogs[1:], newLog)
 }
 

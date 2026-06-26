@@ -22,7 +22,7 @@ type HexThemeState struct {
 
 func (t *HexTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
-	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
+	gs.TargetSentence = gs.RandomSentence()
 	gs.CustomState = &HexThemeState{StartLine: -1} // Init StartLine to -1 so the first UpdateScreen sets it
 }
 

@@ -33,7 +33,7 @@ var matrixChars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01
 
 func (t *MatrixTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
-	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
+	gs.TargetSentence = gs.RandomSentence()
 
 	// Create a new MatrixThemeState if one hasn't been initialized.
 	if _, ok := gs.CustomState.(*MatrixThemeState); !ok {

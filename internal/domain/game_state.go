@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"math/rand"
 	"time"
 )
 
@@ -26,6 +27,17 @@ type GameState struct {
 
 	// Per-theme custom state
 	CustomState interface{}
+}
+
+// RandomSentence returns a random target from the game's sentence pool. It
+// falls back to the default English pool if no pool has been set, so themes can
+// pick a sentence without knowing which language the game was started in.
+func (gs *GameState) RandomSentence() string {
+	pool := gs.Sentences
+	if len(pool) == 0 {
+		pool = Sentences
+	}
+	return pool[rand.Intn(len(pool))]
 }
 
 // ResetCommon resets the per-round state. The mode (TimeLimit) is preserved.

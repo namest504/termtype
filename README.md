@@ -18,11 +18,14 @@ brew install namest504/termtype/termtype
 termtype
 ```
 
-Pick a theme with `↑`/`↓` and a mode with `Tab`, then press `Enter`:
+Pick a theme with `↑`/`↓`, a mode with `Tab`, and a language with `←`/`→`, then
+press `Enter`:
 
 - **Normal** — type the sentence; WPM and accuracy are shown when you finish.
 - **Time Attack** — race a 30s or 60s countdown and type as much as you can
   before time runs out.
+- **Language** — choose English or Korean (한국어). Korean uses an IME, and the
+  themes lay out the wide Hangul glyphs correctly.
 
 ### Controls
 

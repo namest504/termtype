@@ -1,8 +1,6 @@
 package themes
 
 import (
-	"math/rand"
-
 	"github.com/gdamore/tcell/v2"
 	"termtype/internal/domain"
 	"termtype/internal/ui"
@@ -18,7 +16,7 @@ type SimpleTheme struct{}
 
 func (t *SimpleTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
-	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
+	gs.TargetSentence = gs.RandomSentence()
 }
 
 func (t *SimpleTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {

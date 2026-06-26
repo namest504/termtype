@@ -29,30 +29,41 @@ func TestThemes_NoPanicAcrossSizes(t *testing.T) {
 		{1, 1}, {2, 2}, {3, 3}, {10, 4}, {40, 1}, {40, 2},
 		{40, 4}, {41, 5}, {80, 24}, {120, 40}, {200, 60},
 	}
-	inputs := []string{"", "Th", "partial input that is reasonably long", ""}
+	// Each pool is paired with partial inputs to exercise. The Korean inputs
+	// drive the wide-rune (display-width) paths in every theme.
+	pools := []struct {
+		lang      string
+		sentences []string
+		inputs    []string
+	}{
+		{"english", domain.Sentences, []string{"", "Th", "partial input that is reasonably long", ""}},
+		{"korean", domain.KoreanSentences, []string{"", "시작", "시작이 반이다. 더 길게 입력한 한글", ""}},
+	}
 
 	for name, theme := range Themes {
-		for _, sz := range sizes {
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						t.Errorf("theme %q panicked at %dx%d: %v", name, sz.w, sz.h, r)
+		for _, pool := range pools {
+			for _, sz := range sizes {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							t.Errorf("theme %q (%s) panicked at %dx%d: %v", name, pool.lang, sz.w, sz.h, r)
+						}
+					}()
+					r := &mockRenderer{w: sz.w, h: sz.h}
+					gs := &domain.GameState{Sentences: pool.sentences}
+					theme.ResetState(gs)
+					for _, in := range pool.inputs {
+						gs.UserInput = in
+						theme.OnTick(gs)
+						theme.UpdateScreen(r, gs)
 					}
-				}()
-				r := &mockRenderer{w: sz.w, h: sz.h}
-				gs := &domain.GameState{Sentences: domain.Sentences}
-				theme.ResetState(gs)
-				for _, in := range inputs {
-					gs.UserInput = in
-					theme.OnTick(gs)
+					// Also render the finished state
+					gs.IsFinished = true
+					gs.Wpm = 61.2
+					gs.Accuracy = 97.5
 					theme.UpdateScreen(r, gs)
-				}
-				// Also render the finished state
-				gs.IsFinished = true
-				gs.Wpm = 61.2
-				gs.Accuracy = 97.5
-				theme.UpdateScreen(r, gs)
-			}()
+				}()
+			}
 		}
 	}
 }

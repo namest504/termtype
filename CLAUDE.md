@@ -36,7 +36,10 @@ toward `internal/domain`.
   - `theme.go` — the `Theme` and `Renderer` interfaces.
   - `game_state.go` — `GameState` (target, input, timer, WPM, accuracy, and a
     per-theme `CustomState any`).
-  - `sentences.go` — the sentence pool.
+  - `sentences.go` / `sentences_ko.go` — the English and Korean sentence
+    pools. The active pool lives on `GameState.Sentences`; themes pick from it
+    via `gs.RandomSentence()` (never reference the package-level `Sentences`
+    directly, or the language toggle is ignored).
 - `internal/app/game.go` — the game loop: key handling, a 1s ticker for
   animations, completion detection, and WPM/accuracy computation. **All
   length math here is rune-based, not byte-based.**
@@ -62,8 +65,8 @@ type Theme interface {
 
 1. Create `internal/themes/<name>_theme.go`.
 2. Register it: `func init() { Themes["<name>"] = &MyTheme{} }`.
-3. In `ResetState`, call `gs.ResetCommon()`, pick a sentence
-   (`domain.Sentences[rand.Intn(len(domain.Sentences))]`), and initialize any
+3. In `ResetState`, call `gs.ResetCommon()`, pick a sentence with
+   `gs.RandomSentence()` (honors the selected language), and initialize any
    `gs.CustomState`.
 4. In `UpdateScreen`, `renderer.Clear()`, draw, then `renderer.Show()`. Reuse
    `ui.TypingRenderer` for the typing area and `ui.ResultText` for the result.
@@ -102,6 +105,11 @@ Homebrew support.
   `chore:`) with a capitalized summary.
 - **Runes, not bytes:** never use `len(string)` for character counts in game or
   rendering logic — multibyte input breaks it. Use `[]rune`.
+- **Display width, not rune count, for positioning:** Hangul (and other CJK)
+  syllables are two cells wide. When placing glyphs or the cursor, advance by
+  `runewidth.RuneWidth`/`StringWidth`, never by rune index. `TypingRenderer`
+  already does this; bespoke drawing (e.g. the `diff` theme) must too. The
+  Korean pool exercises these paths in `responsive_test.go`.
 - `WrapText` keeps the inter-word space as a trailing space on wrapped lines so
   that the sum of wrapped runes equals the original; `TypingRenderer` relies on
   this for cursor/coloring alignment. There is a regression test for it.

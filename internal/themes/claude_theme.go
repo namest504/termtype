@@ -2,7 +2,6 @@ package themes
 
 import (
 	"fmt"
-	"math/rand"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -75,7 +74,7 @@ func claudeToolCount() int {
 
 func (t *ClaudeTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
-	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
+	gs.TargetSentence = gs.RandomSentence()
 	if _, ok := gs.CustomState.(*ClaudeThemeState); !ok {
 		gs.CustomState = &ClaudeThemeState{}
 	}

@@ -27,13 +27,23 @@ var gameModes = []gameMode{
 	{"Time Attack · 60s", 60 * time.Second},
 }
 
+type language struct {
+	name      string
+	sentences []string
+}
+
+var languages = []language{
+	{"English", domain.Sentences},
+	{"한국어 (Korean)", domain.KoreanSentences},
+}
+
 func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 	for i, r := range []rune(text) {
 		s.SetContent(x+i, y, r, nil, style)
 	}
 }
 
-func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, error) {
+func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, []string, error) {
 	var themeNames []string
 	for name := range themes.Themes {
 		themeNames = append(themeNames, name)
@@ -50,6 +60,7 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, error) {
 
 	selectedIndex := 0
 	modeIndex := 0
+	langIndex := 0
 
 	for {
 		s.Clear()
@@ -66,8 +77,10 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, error) {
 		modeRow := 3 + len(themeNames) + 1
 		drawText(s, 2, modeRow, tcell.StyleDefault.Foreground(tcell.ColorYellow),
 			"Mode: "+gameModes[modeIndex].name)
-		drawText(s, 2, modeRow+2, tcell.StyleDefault.Foreground(tcell.ColorGray),
-			"↑/↓ theme · Tab mode · Enter start · Esc quit")
+		drawText(s, 2, modeRow+1, tcell.StyleDefault.Foreground(tcell.ColorTeal),
+			"Language: "+languages[langIndex].name)
+		drawText(s, 2, modeRow+3, tcell.StyleDefault.Foreground(tcell.ColorGray),
+			"↑/↓ theme · Tab mode · ←/→ language · Enter start · Esc quit")
 		s.Show()
 
 		ev := s.PollEvent()
@@ -77,7 +90,7 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, error) {
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyEscape, tcell.KeyCtrlC:
-				return nil, 0, fmt.Errorf("theme selection cancelled")
+				return nil, 0, nil, fmt.Errorf("theme selection cancelled")
 			case tcell.KeyUp:
 				if selectedIndex > 0 {
 					selectedIndex--
@@ -88,8 +101,10 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, error) {
 				}
 			case tcell.KeyTab:
 				modeIndex = (modeIndex + 1) % len(gameModes)
+			case tcell.KeyLeft, tcell.KeyRight:
+				langIndex = (langIndex + 1) % len(languages)
 			case tcell.KeyEnter:
-				return themes.Themes[themeNames[selectedIndex]], gameModes[modeIndex].limit, nil
+				return themes.Themes[themeNames[selectedIndex]], gameModes[modeIndex].limit, languages[langIndex].sentences, nil
 			}
 		}
 	}
@@ -121,14 +136,14 @@ func main() {
 	s.EnablePaste()
 	s.Clear()
 
-	// Select theme and mode
-	theme, timeLimit, err := selectTheme(s)
+	// Select theme, mode, and language
+	theme, timeLimit, sentences, err := selectTheme(s)
 	if err != nil {
 		return // user cancelled; the deferred Fini restores the terminal
 	}
 
 	// Create and run the game
-	game, err := app.NewGame(s, theme, timeLimit)
+	game, err := app.NewGame(s, theme, timeLimit, sentences)
 	if err != nil {
 		return
 	}

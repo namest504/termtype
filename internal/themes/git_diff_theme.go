@@ -1,8 +1,6 @@
 package themes
 
 import (
-	"math/rand"
-
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
 	"termtype/internal/domain"
@@ -30,7 +28,7 @@ var fakeCode = []string{
 
 func (t *DiffTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
-	gs.TargetSentence = domain.Sentences[rand.Intn(len(domain.Sentences))]
+	gs.TargetSentence = gs.RandomSentence()
 
 	state := &DiffThemeState{}
 	state.ContextLines = make([]string, 5)
@@ -61,6 +59,9 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 			targetRunes := []rune(gs.TargetSentence)
 			inputRunes := []rune(gs.UserInput)
 
+			// Advance by display width so wide (e.g. Hangul) runes line up with
+			// the "+ " prefix and the cursor, which also use display width.
+			col := 2
 			for i := 0; i < len(targetRunes); i++ {
 				style := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 				if i < len(inputRunes) && inputRunes[i] != targetRunes[i] {
@@ -68,7 +69,8 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
 				}
 				// i >= len(inputRunes): not yet typed → keep default green
-				renderer.SetContent(i+2, y, targetRunes[i], style)
+				renderer.SetContent(col, y, targetRunes[i], style)
+				col += runewidth.RuneWidth(targetRunes[i])
 			}
 		} else {
 			renderer.DrawText(0, y, tcell.StyleDefault, " "+line)

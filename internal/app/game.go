@@ -18,9 +18,14 @@ type Game struct {
 	theme    domain.Theme
 }
 
-// Create a new game. timeLimit > 0 enables time-attack mode.
-func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration) (*Game, error) {
-	state := &domain.GameState{Sentences: domain.Sentences, TimeLimit: timeLimit}
+// Create a new game. timeLimit > 0 enables time-attack mode. sentences is the
+// pool the chosen theme draws targets from; an empty pool falls back to the
+// default English set.
+func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, sentences []string) (*Game, error) {
+	if len(sentences) == 0 {
+		sentences = domain.Sentences
+	}
+	state := &domain.GameState{Sentences: sentences, TimeLimit: timeLimit}
 	theme.ResetState(state)
 
 	return &Game{screen: s, renderer: ui.NewRenderer(s), state: state, theme: theme}, nil
