@@ -9,7 +9,7 @@ import (
 	"termtype/internal/ui"
 )
 
-// Game 전체를 관리하는 구조체
+// Struct that manages the entire game
 type Game struct {
 	screen   tcell.Screen
 	renderer *ui.Renderer
@@ -17,7 +17,7 @@ type Game struct {
 	theme    domain.Theme
 }
 
-// 새로운 게임 생성
+// Create a new game
 func NewGame(s tcell.Screen, theme domain.Theme) (*Game, error) {
 	state := &domain.GameState{Sentences: domain.Sentences}
 	theme.ResetState(state)
@@ -25,9 +25,9 @@ func NewGame(s tcell.Screen, theme domain.Theme) (*Game, error) {
 	return &Game{screen: s, renderer: ui.NewRenderer(s), state: state, theme: theme}, nil
 }
 
-// 게임 실행 (실시간 Ticker 포함)
+// Run the game (with a real-time Ticker)
 func (g *Game) Run() {
-	ticker := time.NewTicker(1 * time.Second) // 1초마다 Tick
+	ticker := time.NewTicker(1 * time.Second) // Tick every second
 	defer ticker.Stop()
 
 	eventChan := make(chan tcell.Event)
@@ -78,7 +78,7 @@ func (g *Game) Run() {
 	}
 }
 
-// 키 이벤트 처리
+// Handle key events
 func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 	if ev.Key() == tcell.KeyEscape {
 		g.screen.Fini()
@@ -106,25 +106,31 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 		g.state.UserInput += string(ev.Rune())
 	}
 
-	// 타이핑 완료 체크
-	if len(g.state.UserInput) >= len(g.state.TargetSentence) {
+	// Check typing completion (compare by runes, not bytes)
+	inputRunes := []rune(g.state.UserInput)
+	targetRunes := []rune(g.state.TargetSentence)
+	if len(inputRunes) >= len(targetRunes) {
 		g.state.IsFinished = true
 		duration := time.Since(g.state.StartTime).Minutes()
 
-		if len(g.state.UserInput) > len(g.state.TargetSentence) {
-			g.state.UserInput = g.state.UserInput[:len(g.state.TargetSentence)]
+		// Trim input beyond the target length at rune boundaries
+		if len(inputRunes) > len(targetRunes) {
+			inputRunes = inputRunes[:len(targetRunes)]
+			g.state.UserInput = string(inputRunes)
 		}
 
 		if duration > 0 {
-			g.state.Wpm = (float64(len(g.state.UserInput)) / 5.0) / duration
+			g.state.Wpm = (float64(len(inputRunes)) / 5.0) / duration
 		}
 
 		correctChars := 0
-		for i, r := range []rune(g.state.TargetSentence) {
-			if i < len([]rune(g.state.UserInput)) && []rune(g.state.UserInput)[i] == r {
+		for i, r := range targetRunes {
+			if i < len(inputRunes) && inputRunes[i] == r {
 				correctChars++
 			}
 		}
-		g.state.Accuracy = (float64(correctChars) / float64(len(g.state.TargetSentence))) * 100
+		if len(targetRunes) > 0 {
+			g.state.Accuracy = (float64(correctChars) / float64(len(targetRunes))) * 100
+		}
 	}
 }

@@ -40,9 +40,9 @@ type LogThemeState struct {
 func (t *LogTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
 
-	// 테마에 맞는 커스텀 상태 초기화
+	// Initialize the custom state for this theme.
 	logState := &LogThemeState{
-		backgroundLogs: make([]string, 0), // 처음에는 비워둠
+		backgroundLogs: make([]string, 0), // empty to start
 	}
 	gs.CustomState = logState
 
@@ -57,7 +57,7 @@ func (t *LogTheme) ResetState(gs *domain.GameState) {
 func (t *LogTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	logState, ok := gs.CustomState.(*LogThemeState)
 	if !ok {
-		return // 상태가 준비되지 않음
+		return // state is not ready
 	}
 	renderer.Clear()
 	w, h := renderer.Size()
@@ -83,8 +83,8 @@ func (t *LogTheme) calculateTargetY(h int) int {
 }
 
 func (t *LogTheme) drawBackgroundLogs(renderer domain.Renderer, gs *domain.GameState, logState *LogThemeState, h int) {
-	// 터미널 높이에 맞춰 동적으로 로그 줄 수 조절
-	numLogs := h - 4 // 상단 여백, 타겟 라인, 결과 라인 등을 위한 공간 확보
+	// Dynamically adjust the number of log lines to the terminal height.
+	numLogs := h - 4 // reserve space for top margin, target line, result line, etc.
 	if numLogs < 0 {
 		numLogs = 0
 	}
@@ -96,10 +96,10 @@ func (t *LogTheme) drawBackgroundLogs(renderer domain.Renderer, gs *domain.GameS
 		logState.backgroundLogs = logState.backgroundLogs[len(logState.backgroundLogs)-numLogs:]
 	}
 
-	// 배경 로그 그리기
+	// Draw the background logs.
 	logY := 0
 	for _, logLine := range logState.backgroundLogs {
-		// 그리기 영역 초과 방지
+		// Prevent drawing past the available area.
 		if logY >= numLogs {
 			break
 		}
@@ -122,7 +122,7 @@ func (t *LogTheme) drawTypingLine(renderer domain.Renderer, gs *domain.GameState
 	tr := &ui.TypingRenderer{}
 	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      targetY,
-		Width:       w - 1, // 전체 너비에서 왼쪽 여백 1을 뺀 값 (PrefixWidth는 내부에서 처리됨)
+		Width:       w - 1, // full width minus the left margin of 1 (PrefixWidth is handled internally)
 		PrefixWidth: prefixWidth,
 		CenterText:  false,
 	})
@@ -139,14 +139,19 @@ func (t *LogTheme) drawResultLine(renderer domain.Renderer, gs *domain.GameState
 	renderer.DrawText(1, targetY+3, tcell.StyleDefault, guideText)
 }
 
-// OnTick은 LogTheme에 실시간 스크롤 효과를 줍니다.
+// OnTick gives the LogTheme a real-time scrolling effect.
 func (t *LogTheme) OnTick(gs *domain.GameState) {
 	logState, ok := gs.CustomState.(*LogThemeState)
 	if !ok {
 		return
 	}
 
-	// 새 로그를 추가하고 가장 오래된 로그를 제거
+	// If there are no background logs (terminal height <= 4), there is nothing to scroll.
+	if len(logState.backgroundLogs) == 0 {
+		return
+	}
+
+	// Append a new log and remove the oldest one.
 	newLog, _, _ := formatAsLogLine(domain.Sentences[rand.Intn(len(domain.Sentences))])
 	logState.backgroundLogs = append(logState.backgroundLogs[1:], newLog)
 }

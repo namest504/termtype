@@ -4,10 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"termtype/internal/app"
@@ -84,9 +82,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
-	// 화면 초기화
+	// Initialize screen
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -99,7 +95,7 @@ func main() {
 	s.EnablePaste()
 	s.Clear()
 
-	// 테마 선택
+	// Select theme
 	theme, err := selectTheme(s)
 	if err != nil {
 		s.Fini()
@@ -107,7 +103,7 @@ func main() {
 		return
 	}
 
-	// 게임 생성 및 실행
+	// Create and run the game
 	game, err := app.NewGame(s, theme)
 	if err != nil {
 		log.Fatalf("%+v", err)

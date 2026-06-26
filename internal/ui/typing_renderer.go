@@ -6,31 +6,31 @@ import (
 	"termtype/internal/domain"
 )
 
-// TypingRendererOptions 타이핑 영역 렌더링 옵션
+// TypingRendererOptions holds rendering options for the typing area.
 type TypingRendererOptions struct {
-	// StartY 그리기 시작 Y 좌표
+	// StartY is the starting Y coordinate for drawing.
 	StartY int
-	// Width 텍스트 줄바꿈 가용 너비
+	// Width is the available width for text wrapping.
 	Width int
-	// PrefixWidth 접두어(로그 타임스탬프 등) 너비
+	// PrefixWidth is the prefix width (e.g. log timestamp).
 	PrefixWidth int
-	// CenterText 텍스트 중앙 정렬 여부
+	// CenterText controls whether the text is center-aligned.
 	CenterText bool
 }
 
-// TypingRenderer 타이핑 영역 및 커서 그리기 공통 로직
+// TypingRenderer holds the shared logic for drawing the typing area and cursor.
 type TypingRenderer struct{}
 
-// Draw 대상 문장, 사용자 입력, 커서 렌더링
+// Draw renders the target sentence, user input, and cursor.
 func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, opts TypingRendererOptions) {
-	// 텍스트 가용 너비 계산
+	// Calculate the available text width.
 	availableWidth := opts.Width
 	if !opts.CenterText {
 		availableWidth -= opts.PrefixWidth
 	}
 
-	// 텍스트 줄바꿈
-	// CenterText가 아닐 경우 오른쪽 패딩 확보 (2~3칸)
+	// Wrap the text.
+	// When not centered, reserve right padding (2~3 cells).
 	if !opts.CenterText {
 		availableWidth -= 3
 	}
@@ -38,11 +38,11 @@ func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, o
 	inputRunes := []rune(gs.UserInput)
 	inputOffset := 0
 
-	// 텍스트 그리기
+	// Draw the text.
 	for lineIdx, line := range wrappedTarget {
 		lineRunes := []rune(line)
 
-		// 현재 줄 시작 X 좌표 계산
+		// Calculate the starting X coordinate for the current line.
 		startX := 1 + opts.PrefixWidth
 		if opts.CenterText {
 			startX = (opts.Width - runewidth.StringWidth(line)) / 2
@@ -52,7 +52,7 @@ func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, o
 		for charIdx, r := range lineRunes {
 			currentInputIdx := inputOffset + charIdx
 
-			// 스타일 결정
+			// Determine the style.
 			style := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 			if opts.CenterText {
 				style = style.Background(tcell.ColorBlack)
@@ -82,7 +82,7 @@ func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, o
 		inputOffset += len(lineRunes)
 	}
 
-	// 커서 그리기
+	// Draw the cursor.
 	tr.drawCursor(renderer, wrappedTarget, inputRunes, opts)
 }
 
@@ -100,7 +100,7 @@ func (tr *TypingRenderer) drawCursor(renderer domain.Renderer, wrappedTarget []s
 		lineRunes := []rune(line)
 		lineLen := len(lineRunes)
 
-		if len(inputRunes) >= currentOffset && len(inputRunes) <= currentOffset+lineLen {
+		if len(inputRunes) >= currentOffset && len(inputRunes) < currentOffset+lineLen {
 			cursorLineIdx = i
 			cursorRelIdx := len(inputRunes) - currentOffset
 

@@ -6,7 +6,7 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// WrapText는 주어진 텍스트를 지정된 너비에 맞춰 여러 줄로 나눕니다.
+// WrapText splits the given text into multiple lines fitting the specified width.
 func WrapText(text string, width int) []string {
 	var lines []string
 	if width <= 0 {
@@ -20,17 +20,28 @@ func WrapText(text string, width int) []string {
 
 	currentLine := ""
 	for _, word := range words {
-		if runewidth.StringWidth(currentLine+" "+word) <= width {
-			if currentLine == "" {
-				currentLine = word
-			} else {
-				currentLine += " " + word
-			}
+		if currentLine == "" {
+			// Start a new line: keep a single word even if it exceeds the width (avoids empty lines)
+			currentLine = word
+		} else if runewidth.StringWidth(currentLine+" "+word) <= width {
+			currentLine += " " + word
 		} else {
+			// Keep the inter-word space at the line end to preserve input offset alignment
 			lines = append(lines, currentLine+" ")
 			currentLine = word
 		}
 	}
 	lines = append(lines, currentLine)
 	return lines
+}
+
+// Truncate cuts a string to within the display width. If it exceeds the width, it returns a truncated copy.
+func Truncate(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if runewidth.StringWidth(s) <= width {
+		return s
+	}
+	return runewidth.Truncate(s, width, "")
 }
