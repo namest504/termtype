@@ -10,6 +10,16 @@ import (
 	"termtype/internal/ui"
 )
 
+func newSimScreen(t *testing.T, w, h int) tcell.SimulationScreen {
+	t.Helper()
+	ss := tcell.NewSimulationScreen("")
+	if err := ss.Init(); err != nil {
+		t.Fatal(err)
+	}
+	ss.SetSize(w, h)
+	return ss
+}
+
 type fakeTheme struct{}
 
 func (fakeTheme) ResetState(*domain.GameState)                        {}
@@ -73,5 +83,58 @@ func TestOverlay_NormalHasNoClock(t *testing.T) {
 
 	if top := rowString(ss, 0); strings.Contains(top, "⏱") {
 		t.Errorf("normal mode should have no clock, got: %q", top)
+	}
+}
+
+// While typing, the top-row HUD shows live WPM/accuracy (theme-independent).
+func TestOverlay_LiveStats(t *testing.T) {
+	ss := newSimScreen(t, 60, 10)
+	st := &domain.GameState{
+		TargetSentence: "the quick brown fox",
+		UserInput:      "the quick",
+		TimerStarted:   true,
+		StartTime:      time.Now().Add(-5 * time.Second),
+	}
+	newGame(ss, st).render()
+
+	if top := rowString(ss, 0); !strings.Contains(top, "wpm") || !strings.Contains(top, "%") {
+		t.Errorf("top row missing live stats: %q", top)
+	}
+}
+
+// In ASCII mode the countdown badge uses "TIME" instead of the clock glyph.
+func TestOverlay_ASCIIBadge(t *testing.T) {
+	ui.SetASCII(true)
+	defer ui.SetASCII(false)
+
+	ss := newSimScreen(t, 60, 10)
+	st := &domain.GameState{
+		TimeLimit:    60 * time.Second,
+		TimerStarted: true,
+		StartTime:    time.Now().Add(-5 * time.Second),
+	}
+	newGame(ss, st).render()
+
+	top := rowString(ss, 0)
+	if !strings.Contains(top, "TIME") {
+		t.Errorf("ASCII badge missing, got: %q", top)
+	}
+	if strings.Contains(top, "⏱") {
+		t.Errorf("ASCII mode should not draw the clock glyph, got: %q", top)
+	}
+}
+
+// Below the minimum width the game shows a notice that fits the terminal.
+func TestDrawTooSmall_FitsWidth(t *testing.T) {
+	ss := newSimScreen(t, 8, 4)
+	newGame(ss, &domain.GameState{}).drawTooSmall(8)
+
+	row := rowString(ss, 0)
+	if strings.TrimSpace(row) == "" {
+		t.Error("too-small notice drew nothing")
+	}
+	// Nothing should be drawn past the 8-cell width.
+	if len([]rune(strings.TrimRight(row, " "))) > 8 {
+		t.Errorf("notice overflows width 8: %q", row)
 	}
 }

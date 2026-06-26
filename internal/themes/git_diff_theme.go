@@ -42,6 +42,7 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 		return
 	}
 	renderer.Clear()
+	w, _ := renderer.Size()
 
 	// Draw context lines
 	renderer.DrawText(0, 0, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "diff --git a/main.go b/main.go")
@@ -51,43 +52,72 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 
 	y := 4
 	for i, line := range state.ContextLines {
-		if i == 2 { // where the sentence goes
-			plusStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-			renderer.DrawText(0, y, plusStyle, "+ "+gs.TargetSentence)
-
-			// User input feedback
-			targetRunes := []rune(gs.TargetSentence)
-			inputRunes := []rune(gs.UserInput)
-
-			// Advance by display width so wide (e.g. Hangul) runes line up with
-			// the "+ " prefix and the cursor, which also use display width.
-			col := 2
-			for i := 0; i < len(targetRunes); i++ {
-				style := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-				if i < len(inputRunes) && inputRunes[i] != targetRunes[i] {
-					// Mark only typed-but-wrong characters in red
-					style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
-				}
-				// i >= len(inputRunes): not yet typed → keep default green
-				renderer.SetContent(col, y, targetRunes[i], style)
-				col += runewidth.RuneWidth(targetRunes[i])
-			}
+		if i == 2 { // where the sentence goes (may span several wrapped rows)
+			y = t.drawTarget(renderer, gs, y, w)
 		} else {
 			renderer.DrawText(0, y, tcell.StyleDefault, " "+line)
+			y++
 		}
-		y++
 	}
 
 	if gs.IsFinished {
 		renderer.HideCursor()
-		resultText := ui.ResultText(gs)
-		renderer.DrawText(0, y+2, tcell.StyleDefault, resultText)
-	} else {
-		cursorX := 2 + runewidth.StringWidth(gs.UserInput)
-		renderer.ShowCursor(cursorX, 6)
+		renderer.DrawText(0, y+1, tcell.StyleDefault, ui.Truncate(ui.ResultText(gs), w))
 	}
 
 	renderer.Show()
+}
+
+// drawTarget renders the target as one or more "+ " diff lines, wrapping to the
+// terminal width and coloring each typed rune. It returns the next free row and
+// positions the cursor (unless the round is finished). Glyph placement advances
+// by display width so wide runes (e.g. Hangul) align with the cursor.
+func (t *DiffTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, startY, w int) int {
+	green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	red := tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
+
+	inputRunes := []rune(gs.UserInput)
+	wrapWidth := w - 3 // "+ " prefix plus a cell of right padding
+	if wrapWidth < 1 {
+		wrapWidth = 1
+	}
+	lines := ui.WrapText(gs.TargetSentence, wrapWidth)
+
+	offset := 0
+	cursorX, cursorY := 2, startY
+	foundCursor := false
+	y := startY
+	for _, line := range lines {
+		lineRunes := []rune(line)
+		renderer.DrawText(0, y, green, "+ ")
+		col := 2
+		for ci, r := range lineRunes {
+			idx := offset + ci
+			style := green
+			if idx < len(inputRunes) && inputRunes[idx] != r {
+				style = red
+			}
+			renderer.SetContent(col, y, r, style)
+			col += runewidth.RuneWidth(r)
+		}
+		if !foundCursor && len(inputRunes) >= offset && len(inputRunes) < offset+len(lineRunes) {
+			rel := len(inputRunes) - offset
+			cursorX = 2 + runewidth.StringWidth(string(lineRunes[:rel]))
+			cursorY = y
+			foundCursor = true
+		}
+		offset += len(lineRunes)
+		y++
+	}
+	if !foundCursor && len(lines) > 0 {
+		last := []rune(lines[len(lines)-1])
+		cursorX = 2 + runewidth.StringWidth(string(last))
+		cursorY = startY + len(lines) - 1
+	}
+	if !gs.IsFinished {
+		renderer.ShowCursor(cursorX, cursorY)
+	}
+	return y
 }
 
 func (t *DiffTheme) OnTick(gs *domain.GameState) {}

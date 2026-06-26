@@ -6,12 +6,15 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"termtype/internal/app"
 	"termtype/internal/domain"
 	"termtype/internal/themes"
+	"termtype/internal/ui"
 )
 
 var version = "dev"
@@ -23,8 +26,36 @@ type gameMode struct {
 
 var gameModes = []gameMode{
 	{"Normal", 0},
-	{"Time Attack · 30s", 30 * time.Second},
-	{"Time Attack · 60s", 60 * time.Second},
+	{"Time Attack (30s)", 30 * time.Second},
+	{"Time Attack (60s)", 60 * time.Second},
+}
+
+// resolveASCII decides whether to use the plain-ASCII glyph set. An explicit
+// --ascii flag or TERMTYPE_ASCII env var wins; otherwise we keep Unicode unless
+// the locale is clearly not UTF-8 (e.g. "C"/"POSIX"), since most modern
+// terminals are UTF-8 even when the locale is unset.
+func resolveASCII(flagSet bool) bool {
+	if flagSet {
+		return true
+	}
+	switch strings.ToLower(os.Getenv("TERMTYPE_ASCII")) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	}
+	loc := os.Getenv("LC_ALL")
+	if loc == "" {
+		loc = os.Getenv("LC_CTYPE")
+	}
+	if loc == "" {
+		loc = os.Getenv("LANG")
+	}
+	if loc == "" {
+		return false // unknown locale → assume a modern UTF-8 terminal
+	}
+	loc = strings.ToLower(loc)
+	return !strings.Contains(loc, "utf-8") && !strings.Contains(loc, "utf8")
 }
 
 type language struct {
@@ -38,8 +69,10 @@ var languages = []language{
 }
 
 func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
-	for i, r := range []rune(text) {
-		s.SetContent(x+i, y, r, nil, style)
+	col := x
+	for _, r := range []rune(text) {
+		s.SetContent(col, y, r, nil, style)
+		col += runewidth.RuneWidth(r)
 	}
 }
 
@@ -74,13 +107,29 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, []string, error) 
 			drawText(s, 4, 3+i, style, name)
 		}
 
+		gl := ui.Glyphs()
+		w, _ := s.Size()
 		modeRow := 3 + len(themeNames) + 1
 		drawText(s, 2, modeRow, tcell.StyleDefault.Foreground(tcell.ColorYellow),
 			"Mode: "+gameModes[modeIndex].name)
 		drawText(s, 2, modeRow+1, tcell.StyleDefault.Foreground(tcell.ColorTeal),
 			"Language: "+languages[langIndex].name)
-		drawText(s, 2, modeRow+3, tcell.StyleDefault.Foreground(tcell.ColorGray),
-			"↑/↓ theme · Tab mode · ←/→ language · Enter start · Esc quit")
+
+		// Pick the widest help line that fits the terminal.
+		sep := " " + gl.Sep + " "
+		full := strings.Join([]string{
+			gl.ArrowUD + " theme", "Tab mode", gl.ArrowLR + " language",
+			gl.Enter + " start", "Esc quit",
+		}, sep)
+		compact := strings.Join([]string{gl.ArrowUD + " theme", "Tab mode", gl.ArrowLR + " lang"}, " ")
+		help := full
+		if runewidth.StringWidth(help) > w-2 {
+			help = compact
+		}
+		if runewidth.StringWidth(help) > w-2 {
+			help = gl.Enter + " start"
+		}
+		drawText(s, 2, modeRow+3, tcell.StyleDefault.Foreground(tcell.ColorGray), help)
 		s.Show()
 
 		ev := s.PollEvent()
@@ -113,12 +162,15 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, []string, error) 
 func main() {
 	versionFlag := flag.Bool("version", false, "Print version information")
 	vFlag := flag.Bool("v", false, "Print version information (shorthand)")
+	asciiFlag := flag.Bool("ascii", false, "Use ASCII-only symbols (for terminals/fonts that can't render the Unicode glyphs)")
 	flag.Parse()
 
 	if *versionFlag || *vFlag {
 		fmt.Println(version)
 		os.Exit(0)
 	}
+
+	ui.SetASCII(resolveASCII(*asciiFlag))
 
 	// Initialize screen
 	s, err := tcell.NewScreen()

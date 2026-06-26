@@ -6,9 +6,14 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"termtype/internal/domain"
 	"termtype/internal/ui"
 )
+
+// minWidth is the narrowest terminal the game will play in. Below this the
+// typing area is too cramped to be usable, so we show a short notice instead.
+const minWidth = 20
 
 // Struct that manages the entire game
 type Game struct {
@@ -54,16 +59,14 @@ func (g *Game) Run() {
 			case *tcell.EventResize:
 				g.screen.Sync()
 				w, _ := g.screen.Size()
-				if w < 40 {
-					g.screen.Clear()
-					g.renderer.DrawText(1, 1, tcell.StyleDefault.Foreground(tcell.ColorRed), "Terminal too small (min width: 40)")
-					g.screen.Show()
+				if w < minWidth {
+					g.drawTooSmall(w)
 				} else {
 					g.render()
 				}
 			case *tcell.EventKey:
 				w, _ := g.screen.Size()
-				if w < 40 {
+				if w < minWidth {
 					// Do not process keys if screen is too small, except quit keys
 					if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
 						g.screen.Fini()
@@ -76,7 +79,7 @@ func (g *Game) Run() {
 			}
 		case <-ticker.C:
 			w, _ := g.screen.Size()
-			if w >= 40 && !g.state.IsFinished {
+			if w >= minWidth && !g.state.IsFinished {
 				if !g.state.Paused {
 					if g.state.TimeLimit > 0 && g.state.TimerStarted && g.state.Remaining() <= 0 {
 						g.state.TimedOut = true
@@ -99,43 +102,79 @@ func (g *Game) render() {
 	g.screen.Show()
 }
 
+// drawTooSmall shows a notice sized to fit the (very narrow) terminal.
+func (g *Game) drawTooSmall(w int) {
+	g.screen.Clear()
+	style := tcell.StyleDefault.Foreground(tcell.ColorRed)
+	msg := fmt.Sprintf("Too narrow (min %d cols)", minWidth)
+	if w < len([]rune(msg)) {
+		msg = fmt.Sprintf("min %d", minWidth)
+	}
+	g.renderer.DrawText(0, 0, style, ui.Truncate(msg, w))
+	g.screen.Show()
+}
+
+// drawRightAligned draws text so it ends at column `right` (exclusive). It
+// returns the start column, so HUD fields can be chained leftward.
+func (g *Game) drawRightAligned(text string, y, right int, style tcell.Style) int {
+	x := right - runewidth.StringWidth(text)
+	if x < 0 {
+		x = 0
+	}
+	g.renderer.DrawText(x, y, style, text)
+	return x
+}
+
 func (g *Game) drawOverlay() {
 	w, h := g.screen.Size()
+	gl := ui.Glyphs()
 
+	// Top-right HUD: a countdown badge (time-attack) with the live WPM/accuracy
+	// to its left while typing. Both are theme-independent so every theme gets a
+	// consistent heads-up display.
+	right := w
 	if g.state.TimeLimit > 0 {
 		var label string
 		var style tcell.Style
 		switch {
 		case g.state.IsFinished && g.state.TimedOut:
-			label = " ⏱ TIME UP "
+			label = fmt.Sprintf(" %s TIME UP ", gl.Clock)
 			style = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorMaroon)
 		case g.state.IsFinished:
-			label = " ⏱ DONE "
+			label = fmt.Sprintf(" %s DONE ", gl.Clock)
 			style = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorGreen)
 		default:
 			secs := int(g.state.Remaining().Seconds() + 0.999)
-			label = fmt.Sprintf(" ⏱ %d:%02d ", secs/60, secs%60)
+			label = fmt.Sprintf(" %s %d:%02d ", gl.Clock, secs/60, secs%60)
 			if secs <= 5 {
 				style = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorRed)
 			} else {
 				style = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorYellow)
 			}
 		}
-		x := w - len([]rune(label))
-		if x < 0 {
-			x = 0
+		right = g.drawRightAligned(label, 0, right, style)
+	}
+
+	if g.state.TimerStarted && !g.state.IsFinished && g.state.Elapsed() >= time.Second {
+		wpm, acc := g.state.LiveStats()
+		stats := fmt.Sprintf(" %.0f wpm  %.0f%% ", wpm, acc)
+		// Only show the live stats if they fit without colliding with the badge.
+		if runewidth.StringWidth(stats) <= right {
+			g.drawRightAligned(stats, 0, right, tcell.StyleDefault.Foreground(tcell.ColorTeal))
 		}
-		g.renderer.DrawText(x, 0, style, label)
 	}
 
 	if g.state.Paused {
-		msg := " ⏸  PAUSED — Ctrl-P to resume "
+		msg := fmt.Sprintf(" %s PAUSED - Ctrl-P to resume ", gl.Pause)
+		if runewidth.StringWidth(msg) > w {
+			msg = fmt.Sprintf(" %s PAUSED ", gl.Pause)
+		}
 		style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlue)
-		x := (w - len([]rune(msg))) / 2
+		x := (w - runewidth.StringWidth(msg)) / 2
 		if x < 0 {
 			x = 0
 		}
-		g.renderer.DrawText(x, h/2, style, msg)
+		g.renderer.DrawText(x, h/2, style, ui.Truncate(msg, w))
 	}
 }
 

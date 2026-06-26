@@ -42,12 +42,19 @@ toward `internal/domain`.
     directly, or the language toggle is ignored).
 - `internal/app/game.go` — the game loop: key handling, a 1s ticker for
   animations, completion detection, and WPM/accuracy computation. **All
-  length math here is rune-based, not byte-based.**
+  length math here is rune-based, not byte-based.** `drawOverlay` paints a
+  theme-independent HUD on top of every theme: a top-right countdown badge
+  (time-attack) with live WPM/accuracy beside it, and a centered pause banner.
 - `internal/ui/` — the concrete `Renderer` plus shared drawing helpers:
   - `typing_renderer.go` — `TypingRenderer` draws the wrapped target, colors
     each character by correctness, and positions the cursor.
   - `util.go` — `WrapText` (greedy word wrap) and `Truncate`.
   - `result.go` — `ResultText` (the shared "WPM: .. | Accuracy: ..%" string).
+  - `glyphs.go` — `GlyphSet` with a Unicode and a plain-ASCII variant. Chosen
+    once at startup with `SetASCII` (driven by `--ascii`, `TERMTYPE_ASCII`, or
+    a non-UTF-8 locale) and read everywhere via `Glyphs()`. Any decorative
+    symbol (box drawing, spinner, ⏱/⏸, claude markers) must come from here so
+    limited terminals stay readable.
 - `internal/themes/` — one file per theme; each registers itself in
   `registry.go`'s `Themes` map via `init()`.
 
@@ -113,5 +120,7 @@ Homebrew support.
 - `WrapText` keeps the inter-word space as a trailing space on wrapped lines so
   that the sum of wrapped runes equals the original; `TypingRenderer` relies on
   this for cursor/coloring alignment. There is a regression test for it.
-- The game refuses to play below 40 columns (see `game.go`); themes should
-  still avoid panicking at any size.
+- The game refuses to play below `minWidth` (20) columns (see `game.go`) and
+  shows a width-fitted notice instead; themes should still avoid panicking at
+  any size, and the core typing themes (simple, matrix, claude, diff) reflow
+  cleanly down to that floor.

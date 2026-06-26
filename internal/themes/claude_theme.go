@@ -29,8 +29,6 @@ const claudePromptWidth = 3
 // How many ticks before each new line of the active turn is revealed.
 const claudeRevealEvery = 2
 
-var claudeSpinner = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
-
 type cKind int
 
 const (
@@ -50,7 +48,7 @@ var claudeHistory = []cLine{
 	{cAsst, "I'll extract request parsing and validation first."},
 	{cTool, "Read handler.go (210 lines)"},
 	{cTool, "Updated handler.go (+96 -120)"},
-	{cAsst, "Done — split into parseRequest, validate, and dispatch."},
+	{cAsst, "Done - split into parseRequest, validate, and dispatch."},
 }
 
 // The most recent turn, revealed line by line over time (streaming).
@@ -59,7 +57,7 @@ var claudeActive = []cLine{
 	{cTool, "Read server.go (142 lines)"},
 	{cTool, "Updated server.go (+38 -6)"},
 	{cTool, "Updated main.go (+9 -1)"},
-	{cAsst, "Done — the server now drains connections on SIGTERM."},
+	{cAsst, "Done - the server now drains connections on SIGTERM."},
 }
 
 func claudeToolCount() int {
@@ -149,15 +147,16 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 }
 
 func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style) {
+	gl := ui.Glyphs()
 	switch ln.kind {
 	case cHuman:
 		renderer.DrawText(0, y, faint, "> ")
 		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
 	case cAsst:
-		renderer.DrawText(0, y, orange, "⏺")
+		renderer.DrawText(0, y, orange, gl.AsstDot)
 		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
 	case cTool:
-		renderer.DrawText(2, y, faint, "⎿ ")
+		renderer.DrawText(2, y, faint, gl.ToolBranch)
 		renderer.DrawText(4, y, faint, ui.Truncate(ln.text, w-4))
 	}
 }
@@ -166,20 +165,21 @@ func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState,
 	if statusRow < 0 {
 		return
 	}
+	gl := ui.Glyphs()
 	if gs.IsFinished {
-		renderer.DrawText(0, statusRow, orange, ui.Truncate("⏺ Message sent", w))
+		renderer.DrawText(0, statusRow, orange, ui.Truncate(gl.AsstDot+" Message sent", w))
 		return
 	}
 	if reveal >= len(claudeActive) {
 		doneAt := len(claudeActive) * claudeRevealEvery
 		green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-		msg := fmt.Sprintf("✓ responded in %ds · %d edits · esc to interrupt", doneAt, claudeToolCount())
+		msg := fmt.Sprintf("%s responded in %ds %s %d edits %s esc to interrupt", gl.Check, doneAt, gl.Sep, claudeToolCount(), gl.Sep)
 		renderer.DrawText(0, statusRow, green, ui.Truncate(msg, w))
 		return
 	}
-	frame := claudeSpinner[st.tick%len(claudeSpinner)]
+	frame := gl.Spinner[st.tick%len(gl.Spinner)]
 	tokens := float64(300+st.tick*137) / 1000.0
-	msg := fmt.Sprintf("%c Working… %ds · ↑ %.1fk tokens · esc to interrupt", frame, st.tick, tokens)
+	msg := fmt.Sprintf("%c Working%s %ds %s %s %.1fk tokens %s esc to interrupt", frame, gl.Ellipsis, st.tick, gl.Sep, gl.Up, tokens, gl.Sep)
 	renderer.DrawText(0, statusRow, orange, ui.Truncate(msg, w))
 }
 
@@ -187,18 +187,20 @@ func (t *ClaudeTheme) drawBox(renderer domain.Renderer, top, bottom, w int, styl
 	if w < 2 {
 		return
 	}
-	mid := strings.Repeat("─", w-2)
+	gl := ui.Glyphs()
+	mid := strings.Repeat(gl.BoxH, w-2)
+	vbar := []rune(gl.BoxV)[0]
 	if top >= 0 {
-		renderer.DrawText(0, top, style, "╭"+mid+"╮")
+		renderer.DrawText(0, top, style, gl.BoxTL+mid+gl.BoxTR)
 	}
 	for y := top + 1; y < bottom; y++ {
 		if y >= 0 {
-			renderer.SetContent(0, y, '│', style)
-			renderer.SetContent(w-1, y, '│', style)
+			renderer.SetContent(0, y, vbar, style)
+			renderer.SetContent(w-1, y, vbar, style)
 		}
 	}
 	if bottom >= 0 {
-		renderer.DrawText(0, bottom, style, "╰"+mid+"╯")
+		renderer.DrawText(0, bottom, style, gl.BoxBL+mid+gl.BoxBR)
 	}
 }
 
@@ -230,10 +232,11 @@ func (t *ClaudeTheme) drawHint(renderer domain.Renderer, gs *domain.GameState, h
 	if hintRow < 0 {
 		return
 	}
+	gl := ui.Glyphs()
 	if gs.IsFinished {
-		result := ui.ResultText(gs) + "   ⏎ Enter for a new message · esc quit"
+		result := ui.ResultText(gs) + fmt.Sprintf("   %s Enter for a new message %s esc quit", gl.Send, gl.Sep)
 		renderer.DrawText(0, hintRow, dim, ui.Truncate(result, w))
 		return
 	}
-	renderer.DrawText(0, hintRow, faint, ui.Truncate("⏎ send when complete    esc quit", w))
+	renderer.DrawText(0, hintRow, faint, ui.Truncate(gl.Send+" send when complete    esc quit", w))
 }

@@ -26,6 +26,26 @@ func TestFinalize_PartialAccuracy(t *testing.T) {
 	}
 }
 
+// LiveStats reports progress mid-round without finalizing it.
+func TestLiveStats_DoesNotFinalize(t *testing.T) {
+	gs := &GameState{
+		TargetSentence: "abcdefghij", // 10 runes
+		UserInput:      "abXde",      // typed 5, correct a,b,_,d,e = 4
+		TimerStarted:   true,
+		StartTime:      time.Now().Add(-2 * time.Second),
+	}
+	wpm, acc := gs.LiveStats()
+	if gs.IsFinished {
+		t.Error("LiveStats must not finish the round")
+	}
+	if acc != 80 {
+		t.Errorf("accuracy = %.1f, want 80 (4 of 5 typed)", acc)
+	}
+	if wpm <= 0 {
+		t.Errorf("wpm = %.2f, want > 0", wpm)
+	}
+}
+
 // Remaining counts down from the limit in time-attack mode.
 func TestRemaining_TimeAttack(t *testing.T) {
 	gs := &GameState{

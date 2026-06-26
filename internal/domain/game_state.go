@@ -95,30 +95,48 @@ func (gs *GameState) TogglePause() {
 	}
 }
 
+// computeStats returns WPM and accuracy for the current input without mutating
+// state. Over-typed input is measured only up to the target length. WPM uses the
+// standard 5-characters-per-word convention.
+func (gs *GameState) computeStats() (wpm, accuracy float64) {
+	inputRunes := []rune(gs.UserInput)
+	targetRunes := []rune(gs.TargetSentence)
+	n := len(inputRunes)
+	if n > len(targetRunes) {
+		n = len(targetRunes)
+		inputRunes = inputRunes[:n]
+	}
+
+	if duration := gs.Elapsed().Minutes(); duration > 0 {
+		wpm = (float64(n) / 5.0) / duration
+	}
+
+	correct := 0
+	for i := 0; i < n && i < len(targetRunes); i++ {
+		if inputRunes[i] == targetRunes[i] {
+			correct++
+		}
+	}
+	if n > 0 {
+		accuracy = (float64(correct) / float64(n)) * 100
+	}
+	return wpm, accuracy
+}
+
+// LiveStats returns the in-progress WPM and accuracy, for display while typing.
+func (gs *GameState) LiveStats() (wpm, accuracy float64) {
+	return gs.computeStats()
+}
+
 // Finalize ends the round and computes WPM and accuracy from the current input.
 // It works for both a fully typed sentence and a partial time-attack result.
 func (gs *GameState) Finalize() {
 	inputRunes := []rune(gs.UserInput)
 	targetRunes := []rune(gs.TargetSentence)
 	if len(inputRunes) > len(targetRunes) {
-		inputRunes = inputRunes[:len(targetRunes)]
-		gs.UserInput = string(inputRunes)
+		gs.UserInput = string(inputRunes[:len(targetRunes)])
 	}
 
-	duration := gs.Elapsed().Minutes()
-	if duration > 0 {
-		gs.Wpm = (float64(len(inputRunes)) / 5.0) / duration
-	}
-
-	correct := 0
-	for i := 0; i < len(inputRunes) && i < len(targetRunes); i++ {
-		if inputRunes[i] == targetRunes[i] {
-			correct++
-		}
-	}
-	if len(inputRunes) > 0 {
-		gs.Accuracy = (float64(correct) / float64(len(inputRunes))) * 100
-	}
-
+	gs.Wpm, gs.Accuracy = gs.computeStats()
 	gs.IsFinished = true
 }

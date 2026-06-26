@@ -27,6 +27,24 @@ press `Enter`:
 - **Language** — choose English or Korean (한국어). Korean uses an IME, and the
   themes lay out the wide Hangul glyphs correctly.
 
+A live WPM/accuracy readout (and the countdown, in Time Attack) is shown in the
+top-right corner while you type, on every theme.
+
+### Any terminal, any width
+
+TermType adapts to the terminal: the core themes reflow down to 20 columns, the
+menu and overlays shrink to fit, and the layout reflows as you resize.
+
+For terminals or fonts that can't render the Unicode symbols (boxes, the
+spinner, ⏱/⏸), run with `--ascii` for a plain-ASCII rendering:
+
+```bash
+termtype --ascii
+```
+
+It is auto-enabled for non-UTF-8 locales, or you can force it with
+`TERMTYPE_ASCII=1`.
+
 ### Controls
 
 - `Ctrl-P` — pause / resume
