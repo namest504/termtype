@@ -14,25 +14,63 @@ func init() {
 	Themes["claude"] = &ClaudeTheme{}
 }
 
-// ClaudeTheme is a theme that looks like composing a message in a claude-code CLI session.
-// There's an input box at the bottom with a faint conversation transcript above it. It lays
-// out from the bottom up to fit any terminal size.
+// ClaudeTheme renders the session like a live claude-code conversation: an input
+// box at the bottom where you compose your next message, a scrollback of earlier
+// turns above it, and a most-recent turn that streams in (tool calls + reply)
+// while a spinner/token counter ticks. It lays out from the bottom up to fit any
+// terminal size.
 type ClaudeTheme struct{}
 
 type ClaudeThemeState struct {
 	tick int
 }
 
-// Offset where text starts inside the input box (border + "> ").
 const claudePromptWidth = 3
+
+// How many ticks before each new line of the active turn is revealed.
+const claudeRevealEvery = 2
 
 var claudeSpinner = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 
-// Fake conversation transcript for ambiance (shown faint at the top).
-var claudeTranscript = []string{
-	"> refactor the parser and add tests",
-	"⏺ Done. Updated parser.go and added 12 tests — all passing.",
-	"  ⎿ parser.go (+48 -10)   parser_test.go (+96)",
+type cKind int
+
+const (
+	cHuman cKind = iota
+	cAsst
+	cTool
+)
+
+type cLine struct {
+	kind cKind
+	text string
+}
+
+// Completed earlier turns shown faint in the scrollback.
+var claudeHistory = []cLine{
+	{cHuman, "split the monolith handler into smaller functions"},
+	{cAsst, "I'll extract request parsing and validation first."},
+	{cTool, "Read handler.go (210 lines)"},
+	{cTool, "Updated handler.go (+96 -120)"},
+	{cAsst, "Done — split into parseRequest, validate, and dispatch."},
+}
+
+// The most recent turn, revealed line by line over time (streaming).
+var claudeActive = []cLine{
+	{cAsst, "I'll add graceful shutdown so in-flight work can finish."},
+	{cTool, "Read server.go (142 lines)"},
+	{cTool, "Updated server.go (+38 -6)"},
+	{cTool, "Updated main.go (+9 -1)"},
+	{cAsst, "Done — the server now drains connections on SIGTERM."},
+}
+
+func claudeToolCount() int {
+	n := 0
+	for _, l := range claudeActive {
+		if l.kind == cTool {
+			n++
+		}
+	}
+	return n
 }
 
 func (t *ClaudeTheme) ResetState(gs *domain.GameState) {
@@ -63,9 +101,9 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	dim := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	faint := tcell.StyleDefault.Foreground(tcell.ColorDarkGray)
+	white := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	orange := tcell.StyleDefault.Foreground(tcell.ColorOrange)
 
-	// Compute input box size. wrapWidth matches the TypingRenderer's internal usable width.
 	wrapWidth := (w - 1) - claudePromptWidth - 3
 	if wrapWidth < 1 {
 		wrapWidth = 1
@@ -76,14 +114,34 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 		boxRows = 1
 	}
 
-	// Layout from the bottom up: hint(h-1) → box bottom(h-2) → content → box top → status row → transcript.
 	hintRow := h - 1
 	boxBottom := h - 2
 	boxTop := boxBottom - (boxRows + 1)
 	statusRow := boxTop - 1
 
-	t.drawTranscript(renderer, statusRow, w, faint)
-	t.drawStatus(renderer, gs, st, statusRow, orange)
+	// How much of the active (in-progress) turn has streamed in so far.
+	reveal := len(claudeActive)
+	if !gs.IsFinished {
+		reveal = st.tick / claudeRevealEvery
+		if reveal > len(claudeActive) {
+			reveal = len(claudeActive)
+		}
+	}
+
+	convo := make([]cLine, 0, len(claudeHistory)+reveal)
+	convo = append(convo, claudeHistory...)
+	convo = append(convo, claudeActive[:reveal]...)
+
+	// Render the conversation bottom-anchored, ending just above the status row.
+	firstRow := statusRow - len(convo)
+	for i, ln := range convo {
+		y := firstRow + i
+		if y >= 0 && y < statusRow {
+			t.drawConvoLine(renderer, y, w, ln, white, orange, faint)
+		}
+	}
+
+	t.drawStatus(renderer, gs, st, reveal, statusRow, w, orange, faint)
 	t.drawBox(renderer, boxTop, boxBottom, w, dim)
 	t.drawInput(renderer, gs, wrapped, boxTop, w, orange, dim)
 	t.drawHint(renderer, gs, hintRow, w, dim, faint)
@@ -91,26 +149,39 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 	renderer.Show()
 }
 
-func (t *ClaudeTheme) drawTranscript(renderer domain.Renderer, statusRow, w int, style tcell.Style) {
-	n := len(claudeTranscript)
-	for i, line := range claudeTranscript {
-		y := statusRow - n + i
-		if y >= 0 && y < statusRow {
-			renderer.DrawText(0, y, style, ui.Truncate(line, w))
-		}
+func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style) {
+	switch ln.kind {
+	case cHuman:
+		renderer.DrawText(0, y, faint, "> ")
+		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
+	case cAsst:
+		renderer.DrawText(0, y, orange, "⏺")
+		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
+	case cTool:
+		renderer.DrawText(2, y, faint, "⎿ ")
+		renderer.DrawText(4, y, faint, ui.Truncate(ln.text, w-4))
 	}
 }
 
-func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, statusRow int, style tcell.Style) {
+func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, reveal, statusRow, w int, orange, faint tcell.Style) {
 	if statusRow < 0 {
 		return
 	}
 	if gs.IsFinished {
-		renderer.DrawText(0, statusRow, style, "⏺ Message sent")
+		renderer.DrawText(0, statusRow, orange, ui.Truncate("⏺ Message sent", w))
+		return
+	}
+	if reveal >= len(claudeActive) {
+		doneAt := len(claudeActive) * claudeRevealEvery
+		green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+		msg := fmt.Sprintf("✓ responded in %ds · %d edits · esc to interrupt", doneAt, claudeToolCount())
+		renderer.DrawText(0, statusRow, green, ui.Truncate(msg, w))
 		return
 	}
 	frame := claudeSpinner[st.tick%len(claudeSpinner)]
-	renderer.DrawText(0, statusRow, style, fmt.Sprintf("%c Composing message…  (esc to interrupt)", frame))
+	tokens := float64(300+st.tick*137) / 1000.0
+	msg := fmt.Sprintf("%c Working… %ds · ↑ %.1fk tokens · esc to interrupt", frame, st.tick, tokens)
+	renderer.DrawText(0, statusRow, orange, ui.Truncate(msg, w))
 }
 
 func (t *ClaudeTheme) drawBox(renderer domain.Renderer, top, bottom, w int, style tcell.Style) {
@@ -145,7 +216,7 @@ func (t *ClaudeTheme) drawInput(renderer domain.Renderer, gs *domain.GameState, 
 		})
 		return
 	}
-	// Finished: show the sent message in green
+	// Finished: show the sent message in green.
 	renderer.HideCursor()
 	renderer.DrawText(2, firstLine, dim, ">")
 	sent := tcell.StyleDefault.Foreground(tcell.ColorGreen)
