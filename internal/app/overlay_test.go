@@ -138,3 +138,17 @@ func TestDrawTooSmall_FitsWidth(t *testing.T) {
 		t.Errorf("notice overflows width 8: %q", row)
 	}
 }
+
+// The result line (PB / recent sparkline) is drawn on the top row once the
+// round is finished.
+func TestOverlay_ResultLine(t *testing.T) {
+	ss := newSimScreen(t, 60, 12)
+	st := &domain.GameState{IsFinished: true}
+	g := newGame(ss, st)
+	g.resultLine = " best 72 · recent ▄▆█ "
+	g.drawOverlay()
+	ss.Show()
+	if got := rowString(ss, 0); !strings.Contains(got, "best 72") {
+		t.Errorf("top row = %q, want the result line", got)
+	}
+}

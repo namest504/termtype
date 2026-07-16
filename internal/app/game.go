@@ -8,6 +8,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
 	"termtype/internal/domain"
+	"termtype/internal/store"
 	"termtype/internal/ui"
 )
 
@@ -15,25 +16,40 @@ import (
 // typing area is too cramped to be usable, so we show a short notice instead.
 const minWidth = 20
 
+// RoundMeta labels the rounds a game produces for the history file.
+type RoundMeta struct {
+	Theme  string
+	Lang   string // "en" | "ko" | "-" for custom text
+	Source string // "builtin" | "custom"
+}
+
 // Struct that manages the entire game
 type Game struct {
 	screen   tcell.Screen
 	renderer *ui.Renderer
 	state    *domain.GameState
 	theme    domain.Theme
+
+	meta       RoundMeta
+	store      *store.Store
+	history    []store.Round // loaded once at startup, appended in memory
+	resultLine string        // PB/recent line for the finished round ("" = hide)
+	resultBest bool          // true when resultLine announces a new PB
 }
 
 // Create a new game. timeLimit > 0 enables time-attack mode. sentences is the
 // pool the chosen theme draws targets from; an empty pool falls back to the
-// default English set.
-func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, sentences []string) (*Game, error) {
+// default English set. meta labels recorded rounds; st may be nil to disable
+// persistence.
+func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, sentences []string, meta RoundMeta, st *store.Store) (*Game, error) {
 	if len(sentences) == 0 {
 		sentences = domain.Sentences
 	}
 	state := &domain.GameState{Sentences: sentences, TimeLimit: timeLimit}
 	theme.ResetState(state)
 
-	return &Game{screen: s, renderer: ui.NewRenderer(s), state: state, theme: theme}, nil
+	return &Game{screen: s, renderer: ui.NewRenderer(s), state: state, theme: theme,
+		meta: meta, store: st, history: st.LoadHistory()}, nil
 }
 
 // Run the game (with a real-time Ticker)
@@ -83,7 +99,7 @@ func (g *Game) Run() {
 				if !g.state.Paused {
 					if g.state.TimeLimit > 0 && g.state.TimerStarted && g.state.Remaining() <= 0 {
 						g.state.TimedOut = true
-						g.state.Finalize()
+						g.finalizeRound()
 					} else {
 						g.theme.OnTick(g.state)
 					}
@@ -91,6 +107,40 @@ func (g *Game) Run() {
 				g.render()
 			}
 		}
+	}
+}
+
+// finalizeRound ends the round, appends it to the history, and prepares the
+// result line the overlay shows: a NEW BEST banner, or the current best with
+// a sparkline of the last 10 rounds in the same (mode, lang, source) bucket.
+func (g *Game) finalizeRound() {
+	g.state.Finalize()
+
+	r := store.Round{
+		TS:     time.Now(),
+		Theme:  g.meta.Theme,
+		Mode:   store.ModeString(g.state.TimeLimit),
+		Lang:   g.meta.Lang,
+		WPM:    g.state.Wpm,
+		Acc:    g.state.Accuracy,
+		DurS:   g.state.Elapsed().Seconds(),
+		Source: g.meta.Source,
+	}
+	k := store.KeyOf(r)
+	prevBest, hadBest := store.Best(g.history, k)
+	g.history = append(g.history, r)
+	g.store.AppendRound(r)
+
+	switch {
+	case store.PBEligible(r) && (!hadBest || r.WPM > prevBest):
+		g.resultLine = fmt.Sprintf(" NEW BEST! %.0f wpm ", r.WPM)
+		g.resultBest = true
+	case hadBest:
+		spark := ui.Sparkline(store.RecentWPMs(g.history, k, 10))
+		g.resultLine = fmt.Sprintf(" best %.0f %s recent %s ", prevBest, ui.Glyphs().Sep, spark)
+		g.resultBest = false
+	default:
+		g.resultLine = ""
 	}
 }
 
@@ -164,6 +214,18 @@ func (g *Game) drawOverlay() {
 		}
 	}
 
+	// Once the round is finished the live stats disappear, freeing the top-right
+	// corner for the personal-best line.
+	if g.state.IsFinished && g.resultLine != "" {
+		style := tcell.StyleDefault.Foreground(tcell.ColorGray)
+		if g.resultBest {
+			style = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorGreen)
+		}
+		if runewidth.StringWidth(g.resultLine) <= right {
+			g.drawRightAligned(g.resultLine, 0, right, style)
+		}
+	}
+
 	if g.state.Paused {
 		msg := fmt.Sprintf(" %s PAUSED - Ctrl-P to resume ", gl.Pause)
 		if runewidth.StringWidth(msg) > w {
@@ -217,6 +279,6 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 
 	// Finalize once the whole sentence has been typed (rune count, not bytes).
 	if len([]rune(g.state.UserInput)) >= len([]rune(g.state.TargetSentence)) {
-		g.state.Finalize()
+		g.finalizeRound()
 	}
 }
