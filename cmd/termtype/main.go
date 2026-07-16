@@ -13,6 +13,7 @@ import (
 	"github.com/mattn/go-runewidth"
 	"termtype/internal/app"
 	"termtype/internal/domain"
+	"termtype/internal/store"
 	"termtype/internal/themes"
 	"termtype/internal/ui"
 )
@@ -60,12 +61,13 @@ func resolveASCII(flagSet bool) bool {
 
 type language struct {
 	name      string
+	code      string // history/config value: "en" | "ko"
 	sentences []string
 }
 
 var languages = []language{
-	{"English", domain.Sentences},
-	{"한국어 (Korean)", domain.KoreanSentences},
+	{"English", "en", domain.Sentences},
+	{"한국어 (Korean)", "ko", domain.KoreanSentences},
 }
 
 func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
@@ -76,7 +78,16 @@ func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 	}
 }
 
-func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, []string, error) {
+// selection is everything the menu picks: the theme (and its registry name,
+// recorded in history), the mode limit, and the language.
+type selection struct {
+	theme     domain.Theme
+	themeName string
+	limit     time.Duration
+	lang      language
+}
+
+func selectTheme(s tcell.Screen) (selection, error) {
 	var themeNames []string
 	for name := range themes.Themes {
 		themeNames = append(themeNames, name)
@@ -139,7 +150,7 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, []string, error) 
 		case *tcell.EventKey:
 			switch ev.Key() {
 			case tcell.KeyEscape, tcell.KeyCtrlC:
-				return nil, 0, nil, fmt.Errorf("theme selection cancelled")
+				return selection{}, fmt.Errorf("theme selection cancelled")
 			case tcell.KeyUp:
 				if selectedIndex > 0 {
 					selectedIndex--
@@ -153,7 +164,9 @@ func selectTheme(s tcell.Screen) (domain.Theme, time.Duration, []string, error) 
 			case tcell.KeyLeft, tcell.KeyRight:
 				langIndex = (langIndex + 1) % len(languages)
 			case tcell.KeyEnter:
-				return themes.Themes[themeNames[selectedIndex]], gameModes[modeIndex].limit, languages[langIndex].sentences, nil
+				name := themeNames[selectedIndex]
+				return selection{theme: themes.Themes[name], themeName: name,
+					limit: gameModes[modeIndex].limit, lang: languages[langIndex]}, nil
 			}
 		}
 	}
@@ -163,10 +176,16 @@ func main() {
 	versionFlag := flag.Bool("version", false, "Print version information")
 	vFlag := flag.Bool("v", false, "Print version information (shorthand)")
 	asciiFlag := flag.Bool("ascii", false, "Use ASCII-only symbols (for terminals/fonts that can't render the Unicode glyphs)")
+	statsFlag := flag.Bool("stats", false, "Print a typing history summary and exit")
 	flag.Parse()
 
 	if *versionFlag || *vFlag {
 		fmt.Println(version)
+		os.Exit(0)
+	}
+
+	if *statsFlag {
+		fmt.Print(store.FormatStats(store.Default().LoadHistory()))
 		os.Exit(0)
 	}
 
@@ -189,13 +208,14 @@ func main() {
 	s.Clear()
 
 	// Select theme, mode, and language
-	theme, timeLimit, sentences, err := selectTheme(s)
+	sel, err := selectTheme(s)
 	if err != nil {
 		return // user cancelled; the deferred Fini restores the terminal
 	}
 
 	// Create and run the game
-	game, err := app.NewGame(s, theme, timeLimit, sentences)
+	meta := app.RoundMeta{Theme: sel.themeName, Lang: sel.lang.code, Source: "builtin"}
+	game, err := app.NewGame(s, sel.theme, sel.limit, sel.lang.sentences, meta, store.Default())
 	if err != nil {
 		return
 	}
