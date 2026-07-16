@@ -30,6 +30,19 @@ press `Enter`:
 A live WPM/accuracy readout (and the countdown, in Time Attack) is shown in the
 top-right corner while you type, on every theme.
 
+### History & personal bests
+
+Every finished round is saved to `~/.config/termtype/history.jsonl` (or your
+platform's config directory). The result screen shows `NEW BEST!` when you set
+a personal best, or your current best plus a sparkline of the last 10 rounds.
+Bests are tracked separately per mode and language.
+
+See a summary of your history without starting the game:
+
+```bash
+termtype --stats
+```
+
 ### Any terminal, any width
 
 TermType adapts to the terminal: the core themes reflow down to 20 columns, the

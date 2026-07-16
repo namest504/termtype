@@ -49,8 +49,9 @@ All persistence lives in one package with no new external dependencies.
 
 ## Feature 1 — History & personal bests (PR 1)
 
-**Recording unit:** Normal mode records one line per finished sentence.
-Time Attack records one line per run (at time-up).
+**Recording unit:** one line per finished round. In Normal mode a round is
+one sentence; in Time Attack a round ends at sentence completion or time-up
+(the countdown races one sentence at a time in the current implementation).
 
 **Personal best (PB):** best WPM per `(mode, lang, source)` bucket, so a 30s
 English run never competes with a Normal Korean run. Rounds shorter than 5
