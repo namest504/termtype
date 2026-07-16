@@ -65,6 +65,19 @@ func TestFormatStats(t *testing.T) {
 	}
 }
 
+func TestFormatStatsNoEligibleBest(t *testing.T) {
+	rounds := []Round{
+		{Mode: "normal", Lang: "en", Source: "builtin", WPM: 90, Acc: 99, DurS: 3},
+	}
+	out := FormatStats(rounds)
+	if strings.Contains(out, "best   0.0") {
+		t.Errorf("FormatStats() = %q, must not print a 0.0 best for a bucket with no eligible round", out)
+	}
+	if !strings.Contains(out, "best     -") {
+		t.Errorf("FormatStats() = %q, want a dash placeholder for the missing best", out)
+	}
+}
+
 func TestFormatStatsEmpty(t *testing.T) {
 	if out := FormatStats(nil); !strings.Contains(out, "No history") {
 		t.Errorf("FormatStats(nil) = %q, want a no-history notice", out)

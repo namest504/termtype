@@ -132,7 +132,7 @@ func (g *Game) finalizeRound() {
 	g.store.AppendRound(r)
 
 	switch {
-	case store.PBEligible(r) && (!hadBest || r.WPM > prevBest):
+	case store.PBEligible(r) && r.WPM > 0 && (!hadBest || r.WPM > prevBest):
 		g.resultLine = fmt.Sprintf(" NEW BEST! %.0f wpm ", r.WPM)
 		g.resultBest = true
 	case hadBest:

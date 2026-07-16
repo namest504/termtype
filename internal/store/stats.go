@@ -98,13 +98,16 @@ func FormatStats(rounds []Round) string {
 	var b strings.Builder
 	for _, k := range keys {
 		a := aggs[k]
-		best, _ := Best(rounds, k)
+		bestStr := "    -"
+		if best, ok := Best(rounds, k); ok {
+			bestStr = fmt.Sprintf("%5.1f", best)
+		}
 		src := ""
 		if k.Source != "builtin" {
 			src = " (" + k.Source + ")"
 		}
-		fmt.Fprintf(&b, "%-7s %-3s%s runs %-4d best %5.1f  avg %5.1f wpm  acc %.1f%%\n",
-			k.Mode, k.Lang, src, a.n, best, a.wpmSum/float64(a.n), a.accSum/float64(a.n))
+		fmt.Fprintf(&b, "%-7s %-3s%s runs %-4d best %s  avg %5.1f wpm  acc %.1f%%\n",
+			k.Mode, k.Lang, src, a.n, bestStr, a.wpmSum/float64(a.n), a.accSum/float64(a.n))
 	}
 	return b.String()
 }
