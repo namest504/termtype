@@ -35,6 +35,7 @@ type Game struct {
 	history    []store.Round // loaded once at startup, appended in memory
 	resultLine string        // PB/recent line for the finished round ("" = hide)
 	resultBest bool          // true when resultLine announces a new PB
+	showGraph  bool          // finished round: the wpm graph view is up
 }
 
 // Create a new game. timeLimit > 0 enables time-attack mode. sentences is the
@@ -102,6 +103,7 @@ func (g *Game) Run() {
 						g.state.TimedOut = true
 						g.finalizeRound()
 					} else {
+						g.state.SampleWPM()
 						g.theme.OnTick(g.state)
 					}
 				}
@@ -118,14 +120,17 @@ func (g *Game) finalizeRound() {
 	g.state.Finalize()
 
 	r := store.Round{
-		TS:     time.Now(),
-		Theme:  g.meta.Theme,
-		Mode:   store.ModeString(g.state.TimeLimit),
-		Lang:   g.meta.Lang,
-		WPM:    g.state.Wpm,
-		Acc:    g.state.Accuracy,
-		DurS:   g.state.Elapsed().Seconds(),
-		Source: g.meta.Source,
+		TS:        time.Now(),
+		Theme:     g.meta.Theme,
+		Mode:      store.ModeString(g.state.TimeLimit),
+		Lang:      g.meta.Lang,
+		WPM:       g.state.Wpm,
+		Acc:       g.state.Accuracy,
+		DurS:      g.state.FinalDurS,
+		Source:    g.meta.Source,
+		RawWPM:    g.state.FinalRawWPM,
+		CPM:       g.state.FinalCPM,
+		WPMSeries: g.state.WPMSamples,
 	}
 	k := store.KeyOf(r)
 	prevBest, hadBest := store.Best(g.history, k)
@@ -146,11 +151,57 @@ func (g *Game) finalizeRound() {
 }
 
 // render draws the current theme plus the mode overlays (time-attack countdown
-// and pause banner) on top.
+// and pause banner) on top — or the wpm graph view when it is toggled up.
 func (g *Game) render() {
+	if g.state.IsFinished && g.showGraph {
+		g.drawGraphView()
+		g.screen.Show()
+		return
+	}
 	g.theme.UpdateScreen(g.renderer, g.state)
 	g.drawOverlay()
 	g.screen.Show()
+}
+
+// drawGraphView is the full-screen result graph: the round's WPM over time
+// with the accuracy/raw/cpm/time summary underneath.
+func (g *Game) drawGraphView() {
+	g.renderer.Clear()
+	w, h := g.screen.Size()
+
+	centered := func(y int, style tcell.Style, text string) {
+		x := (w - runewidth.StringWidth(text)) / 2
+		if x < 0 {
+			x = 0
+		}
+		g.renderer.DrawText(x, y, style, ui.Truncate(text, w))
+	}
+
+	chartW := w - 8
+	if chartW > 64 {
+		chartW = 64
+	}
+	chartH := h - 8
+	if chartH > 10 {
+		chartH = 10
+	}
+	if chartH < 2 {
+		chartH = 2
+	}
+	top := (h - (chartH + 6)) / 2
+	if top < 0 {
+		top = 0
+	}
+
+	centered(top, tcell.StyleDefault.Foreground(tcell.ColorGreen), fmt.Sprintf("wpm: %.0f", g.state.Wpm))
+	ui.DrawLineChart(g.renderer, (w-chartW)/2, top+2, chartW, chartH, g.state.WPMSamples,
+		tcell.StyleDefault.Foreground(tcell.ColorGray),
+		tcell.StyleDefault.Foreground(tcell.ColorYellow))
+	centered(top+chartH+3, tcell.StyleDefault.Foreground(tcell.ColorTeal),
+		fmt.Sprintf("accuracy: %.1f  raw: %.0f  cpm: %.0f  time: %.0fs",
+			g.state.Accuracy, g.state.FinalRawWPM, g.state.FinalCPM, g.state.FinalDurS))
+	centered(top+chartH+5, tcell.StyleDefault.Foreground(tcell.ColorGray), "g back  enter next  esc quit")
+	g.renderer.HideCursor()
 }
 
 // drawTooSmall shows a notice sized to fit the (very narrow) terminal.
@@ -227,6 +278,11 @@ func (g *Game) drawOverlay() {
 		}
 	}
 
+	// Point at the graph view once a round has enough samples to draw one.
+	if g.state.IsFinished && len(g.state.WPMSamples) >= 2 {
+		g.drawRightAligned(" g graph ", 1, w, tcell.StyleDefault.Foreground(tcell.ColorGray))
+	}
+
 	if g.state.Paused {
 		msg := fmt.Sprintf(" %s PAUSED - Ctrl-P to resume ", gl.Pause)
 		if runewidth.StringWidth(msg) > w {
@@ -258,8 +314,12 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 	}
 
 	if g.state.IsFinished {
-		if ev.Key() == tcell.KeyEnter {
+		switch {
+		case ev.Key() == tcell.KeyEnter:
+			g.showGraph = false
 			g.theme.ResetState(g.state)
+		case ev.Key() == tcell.KeyRune && (ev.Rune() == 'g' || ev.Rune() == 'G'):
+			g.showGraph = !g.showGraph
 		}
 		return
 	}
@@ -276,6 +336,7 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 			g.state.TimerStarted = true
 		}
 		g.state.UserInput += string(ev.Rune())
+		g.state.TypedRunes++
 	}
 
 	// Finalize once the whole sentence has been typed (rune count, not bytes).

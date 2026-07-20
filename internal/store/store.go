@@ -21,16 +21,21 @@ type Config struct {
 	Ghost  bool   `json:"ghost"`
 }
 
-// Round is one finished typing round — one line in history.jsonl.
+// Round is one finished typing round — one line in history.jsonl. The
+// RawWPM/CPM/WPMSeries fields were added later and are absent from older
+// lines, which decode with zero values.
 type Round struct {
-	TS     time.Time `json:"ts"`
-	Theme  string    `json:"theme"`
-	Mode   string    `json:"mode"` // "normal" | "ta30" | "ta60"
-	Lang   string    `json:"lang"` // "en" | "ko" | "-" (custom text)
-	WPM    float64   `json:"wpm"`
-	Acc    float64   `json:"acc"`
-	DurS   float64   `json:"dur_s"`
-	Source string    `json:"source"` // "builtin" | "custom"
+	TS        time.Time `json:"ts"`
+	Theme     string    `json:"theme"`
+	Mode      string    `json:"mode"` // "normal" | "ta15" | "ta30" | "ta60"
+	Lang      string    `json:"lang"` // "en" | "ko" | "-" (custom text)
+	WPM       float64   `json:"wpm"`
+	Acc       float64   `json:"acc"`
+	DurS      float64   `json:"dur_s"`
+	Source    string    `json:"source"` // "builtin" | "words" | "custom"
+	RawWPM    float64   `json:"raw_wpm,omitempty"`
+	CPM       float64   `json:"cpm,omitempty"`
+	WPMSeries []float64 `json:"wpm_series,omitempty"` // one sample per second
 }
 
 // Store reads and writes files under one directory. A nil Store or one with

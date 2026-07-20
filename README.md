@@ -48,6 +48,13 @@ selections.
 A live WPM/accuracy readout (and the countdown, in Time Attack) is shown in the
 top-right corner while you type, on every theme.
 
+### Result graph
+
+While you type, TermType samples your WPM once a second. After a round,
+press `g` for a WPM-over-time graph with an accuracy/raw/cpm summary — the
+`cozy` theme draws it right on its result screen. The series is saved with
+each round.
+
 ### History & personal bests
 
 Every finished round is saved to `~/.config/termtype/history.jsonl` (or your
