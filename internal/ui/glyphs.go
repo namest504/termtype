@@ -24,6 +24,8 @@ type GlyphSet struct {
 	ArrowLR    string // menu: cycle left/right
 	Enter      string // menu: start key
 	Sep        string // inline separator between fields
+	ChartDot   string // wpm graph: data point
+	ChartTick  string // wpm graph: y-axis tick
 }
 
 var unicodeGlyphs = GlyphSet{
@@ -46,6 +48,8 @@ var unicodeGlyphs = GlyphSet{
 	ArrowLR:    "←/→",
 	Enter:      "Enter",
 	Sep:        "·",
+	ChartDot:   "●",
+	ChartTick:  "┤",
 }
 
 var asciiGlyphs = GlyphSet{
@@ -68,6 +72,8 @@ var asciiGlyphs = GlyphSet{
 	ArrowLR:    "L/R",
 	Enter:      "Enter",
 	Sep:        "-",
+	ChartDot:   "*",
+	ChartTick:  "|",
 }
 
 var useASCII bool

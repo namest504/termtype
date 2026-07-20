@@ -147,7 +147,6 @@ func (t *CozyTheme) drawTyping(renderer domain.Renderer, gs *domain.GameState, w
 
 func (t *CozyTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, w, h int) {
 	renderer.HideCursor()
-	centerY := h / 2
 
 	drawCentered := func(y int, style tcell.Style, text string) {
 		x := (w - runewidth.StringWidth(text)) / 2
@@ -157,10 +156,37 @@ func (t *CozyTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, w
 		renderer.DrawText(x, y, style, ui.Truncate(text, w))
 	}
 
-	drawCentered(centerY-1, tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg),
+	// The wpm graph slots between the title and the summary when the round
+	// has samples and the terminal has the rows for it.
+	chartH := 0
+	if len(gs.WPMSamples) >= 2 && h >= 12 {
+		chartH = h - 10
+		if chartH > 8 {
+			chartH = 8
+		}
+	}
+
+	top := (h - (6 + chartH)) / 2
+	if top < 1 {
+		top = 1
+	}
+
+	drawCentered(top, tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg),
 		fmt.Sprintf("wpm: %.0f", gs.Wpm))
-	drawCentered(centerY+1, tcell.StyleDefault.Foreground(cozyCream).Background(cozyBg),
-		fmt.Sprintf("accuracy: %.1f", gs.Accuracy))
-	drawCentered(centerY+3, tcell.StyleDefault.Foreground(cozyDim).Background(cozyBg),
+	y := top + 2
+	if chartH > 0 {
+		chartW := w - 10
+		if chartW > 52 {
+			chartW = 52
+		}
+		ui.DrawLineChart(renderer, (w-chartW)/2, y, chartW, chartH, gs.WPMSamples,
+			tcell.StyleDefault.Foreground(cozyDim).Background(cozyBg),
+			tcell.StyleDefault.Foreground(cozyCream).Background(cozyBg))
+		y += chartH + 1
+	}
+	drawCentered(y, tcell.StyleDefault.Foreground(cozyCream).Background(cozyBg),
+		fmt.Sprintf("accuracy: %.1f  raw: %.0f  cpm: %.0f  time: %.0fs",
+			gs.Accuracy, gs.FinalRawWPM, gs.FinalCPM, gs.FinalDurS))
+	drawCentered(y+2, tcell.StyleDefault.Foreground(cozyDim).Background(cozyBg),
 		"enter next  esc quit")
 }
