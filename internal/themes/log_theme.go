@@ -8,8 +8,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"termtype/internal/domain"
-	"termtype/internal/ui"
+	"github.com/namest504/termtype/internal/domain"
+	"github.com/namest504/termtype/internal/ui"
 )
 
 var logLevels = []string{"INFO", "WARN", "DEBUG", "ERROR"}

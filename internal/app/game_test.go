@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
-	"termtype/internal/domain"
+	"github.com/namest504/termtype/internal/domain"
 )
 
 func typeRunes(g *Game, s string) {

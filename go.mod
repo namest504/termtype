@@ -1,4 +1,4 @@
-module termtype
+module github.com/namest504/termtype
 
 go 1.25.3
 

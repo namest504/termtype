@@ -3,7 +3,7 @@ package ui
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"termtype/internal/domain"
+	"github.com/namest504/termtype/internal/domain"
 )
 
 // TypingRendererOptions holds rendering options for the typing area.

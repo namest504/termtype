@@ -5,7 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"termtype/internal/domain"
+	"github.com/namest504/termtype/internal/domain"
 )
 
 // mockRenderer is a screenless renderer implementing domain.Renderer (only reports size).

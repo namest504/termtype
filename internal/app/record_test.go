@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"termtype/internal/domain"
-	"termtype/internal/store"
+	"github.com/namest504/termtype/internal/domain"
+	"github.com/namest504/termtype/internal/store"
 )
 
 // newRecordingGame returns a Game whose round is fully typed and ~10s old,

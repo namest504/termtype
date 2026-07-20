@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"termtype/internal/domain"
+	"github.com/namest504/termtype/internal/domain"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"

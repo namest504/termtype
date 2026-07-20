@@ -6,7 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"termtype/internal/domain"
+	"github.com/namest504/termtype/internal/domain"
 )
 
 // colOf returns the x column where rune target first appears on row y, or -1.

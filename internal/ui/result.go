@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"termtype/internal/domain"
+	"github.com/namest504/termtype/internal/domain"
 )
 
 // ResultText returns the WPM/accuracy summary string shown on the completion screen.
