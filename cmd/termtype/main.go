@@ -119,7 +119,7 @@ func indexOf(n int, match func(int) bool) int {
 	return 0
 }
 
-func selectTheme(s tcell.Screen, cfg store.Config) (selection, error) {
+func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, error) {
 	var themeNames []string
 	for name := range themes.Themes {
 		themeNames = append(themeNames, name)
@@ -179,7 +179,7 @@ func selectTheme(s tcell.Screen, cfg store.Config) (selection, error) {
 		sep := " " + gl.Sep + " "
 		full := strings.Join([]string{
 			gl.ArrowUD + " theme", "Tab mode", "Space text", gl.ArrowLR + " language",
-			gl.Enter + " start", "Esc quit",
+			"h history", gl.Enter + " start", "Esc quit",
 		}, sep)
 		compact := strings.Join([]string{gl.ArrowUD + " theme", "Tab mode", "Space text"}, " ")
 		help := full
@@ -215,8 +215,11 @@ func selectTheme(s tcell.Screen, cfg store.Config) (selection, error) {
 					langIndex = (langIndex + 1) % len(languages)
 				}
 			case tcell.KeyRune:
-				if ev.Rune() == ' ' {
+				switch ev.Rune() {
+				case ' ':
 					srcIndex = (srcIndex + 1) % len(textSources)
+				case 'h', 'H':
+					showHistory(s, st.LoadHistory())
 				}
 			case tcell.KeyEnter:
 				name := themeNames[selectedIndex]
@@ -266,7 +269,7 @@ func main() {
 	// Select theme, mode, text source, and language
 	st := store.Default()
 	cfg := st.LoadConfig()
-	sel, err := selectTheme(s, cfg)
+	sel, err := selectTheme(s, cfg, st)
 	if err != nil {
 		return // user cancelled; the deferred Fini restores the terminal
 	}
