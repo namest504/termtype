@@ -124,12 +124,20 @@ func selectTheme(s tcell.Screen, cfg store.Config) (selection, error) {
 	for name := range themes.Themes {
 		themeNames = append(themeNames, name)
 	}
-	sort.Slice(themeNames, func(i, j int) bool {
-		if themeNames[i] == "log" {
-			return true
+	// log leads (the default), cozy sits right after it, the rest follow
+	// alphabetically.
+	rank := func(name string) int {
+		switch name {
+		case "log":
+			return 0
+		case "cozy":
+			return 1
 		}
-		if themeNames[j] == "log" {
-			return false
+		return 2
+	}
+	sort.Slice(themeNames, func(i, j int) bool {
+		if ri, rj := rank(themeNames[i]), rank(themeNames[j]); ri != rj {
+			return ri < rj
 		}
 		return themeNames[i] < themeNames[j]
 	})
