@@ -62,6 +62,9 @@ platform's config directory). The result screen shows `NEW BEST!` when you set
 a personal best, or your current best plus a sparkline of the last 10 rounds.
 Bests are tracked separately per mode and language.
 
+Press `h` on the menu to browse past rounds — pick one to replay its WPM
+graph (rounds recorded before the graph feature show their summary only).
+
 See a summary of your history without starting the game:
 
 ```bash
