@@ -8,6 +8,7 @@ import (
 // GameState holds the state of a typing round.
 type GameState struct {
 	Sentences      []string
+	TargetGen      func() string // when set, targets come from here, not the pool
 	TargetSentence string
 	UserInput      string
 	StartTime      time.Time
@@ -29,10 +30,15 @@ type GameState struct {
 	CustomState interface{}
 }
 
-// RandomSentence returns a random target from the game's sentence pool. It
-// falls back to the default English pool if no pool has been set, so themes can
-// pick a sentence without knowing which language the game was started in.
+// RandomSentence returns the next typing target: the TargetGen stream when
+// one is set (the "words" source), otherwise a random pick from the game's
+// sentence pool. It falls back to the default English pool if no pool has
+// been set, so themes can pick a sentence without knowing which language the
+// game was started in.
 func (gs *GameState) RandomSentence() string {
+	if gs.TargetGen != nil {
+		return gs.TargetGen()
+	}
 	pool := gs.Sentences
 	if len(pool) == 0 {
 		pool = Sentences

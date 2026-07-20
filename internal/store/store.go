@@ -14,10 +14,11 @@ import (
 // Config holds the last-used selections and toggles. Ghost is written for
 // forward-compatibility; the pace-ghost feature reads it later.
 type Config struct {
-	Theme string `json:"theme"`
-	Mode  string `json:"mode"`
-	Lang  string `json:"lang"`
-	Ghost bool   `json:"ghost"`
+	Theme  string `json:"theme"`
+	Mode   string `json:"mode"`
+	Lang   string `json:"lang"`
+	Source string `json:"source"` // "builtin" | "words"
+	Ghost  bool   `json:"ghost"`
 }
 
 // Round is one finished typing round — one line in history.jsonl.

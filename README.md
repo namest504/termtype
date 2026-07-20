@@ -32,14 +32,18 @@ Grab an archive for macOS, Linux, or Windows from the
 termtype
 ```
 
-Pick a theme with `↑`/`↓`, a mode with `Tab`, and a language with `←`/`→`, then
-press `Enter`:
+Pick a theme with `↑`/`↓`, a mode with `Tab`, the text with `Space`, and a
+language with `←`/`→`, then press `Enter`. The menu remembers your last
+selections.
 
-- **Normal** — type the sentence; WPM and accuracy are shown when you finish.
-- **Time Attack** — race a 30s or 60s countdown and type as much as you can
-  before time runs out.
+- **Normal** — type the target; WPM and accuracy are shown when you finish.
+- **Time Attack** — race a 15s, 30s, or 60s countdown and type as much as you
+  can before time runs out.
+- **Text** — type the built-in sentences, or a random stream of common
+  English words.
 - **Language** — choose English or Korean (한국어). Korean uses an IME, and the
-  themes lay out the wide Hangul glyphs correctly.
+  themes lay out the wide Hangul glyphs correctly. The words stream is
+  English-only for now.
 
 A live WPM/accuracy readout (and the countdown, in Time Attack) is shown in the
 top-right corner while you type, on every theme.
