@@ -9,6 +9,7 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
@@ -16,6 +17,9 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
 checksum:
   name_template: 'checksums.txt'
@@ -41,7 +45,7 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/namest504/termtype"
-    description: "A simple typing practice application for your terminal."
+    description: "Terminal typing practice with themes, Korean support, and personal bests"
     license: "MIT"
     install: |
       bin.install "termtype"
