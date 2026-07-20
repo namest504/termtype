@@ -85,6 +85,8 @@ It is auto-enabled for non-UTF-8 locales, or you can force it with
 ## Available Themes
 
 - `simple`: A simple, clean interface.
+- `cozy`: A warm, minimal screen — three lines of text, a small timer, and
+  nothing else. Pairs well with the words stream.
 - `log`: A theme that simulates a log stream.
 - `matrix`: A theme inspired by The Matrix.
 - `hex`: A theme that mimics a hex editor.
