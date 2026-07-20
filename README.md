@@ -1,16 +1,30 @@
 # TermType
 
-A simple typing practice application for your terminal.
+Typing practice in your terminal. Six themes — a plain screen, a log stream,
+Matrix rain, a hex editor, a git diff, and a live Claude Code session — with
+English and Korean sentences, personal bests, and a stats summary.
 
 ![TermType — the claude theme](docs/termtype-claude.gif)
 
 ## Installation
 
-### Homebrew
+### Homebrew (macOS, Linux)
 
 ```bash
 brew install namest504/termtype/termtype
 ```
+
+### Go
+
+```bash
+go install github.com/namest504/termtype/cmd/termtype@latest
+```
+
+### Prebuilt binaries
+
+Grab an archive for macOS, Linux, or Windows from the
+[releases page](https://github.com/namest504/termtype/releases) and put the
+`termtype` binary on your `PATH`.
 
 ## Usage
 
