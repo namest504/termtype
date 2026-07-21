@@ -120,27 +120,52 @@ func (t *TutorTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState
 	renderer.Clear()
 	w, h := renderer.Size()
 
-	// Typing area at the top, two windowed lines.
+	const textLines = 2
+	showKB := h >= textLines+kbRowsH+4 && w >= kbWidth+2
+	showHands := showKB && h >= textLines+kbRowsH+handsH+6 && w >= 2*handWidth+6
+
+	// Center the whole ensemble vertically; the text column shares the
+	// keyboard's center and sits one row above it, so the eye never has to
+	// travel between them.
+	blockH := textLines
+	if showKB {
+		blockH += 1 + kbRowsH
+	}
+	if showHands {
+		blockH += 1 + handsH
+	}
+	top := (h - blockH) / 2
+	if top < 1 {
+		top = 1
+	}
+
+	colW := kbWidth + 12
+	if colW > w-2 {
+		colW = w - 2
+	}
+	colX := (w - colW) / 2
+	if colX < 1 {
+		colX = 1
+	}
+
 	tr := &ui.TypingRenderer{}
 	rows := tr.Draw(renderer, gs, ui.TypingRendererOptions{
-		StartY:   1,
-		Width:    w - 2,
-		MaxLines: 2,
+		StartY:      top,
+		Width:       colX + colW + 2, // renderer draws from colX via PrefixWidth
+		PrefixWidth: colX - 1,
+		MaxLines:    textLines,
 	})
 
 	if gs.IsFinished {
 		renderer.HideCursor()
-		renderer.DrawText(1, 1+rows+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), ui.Truncate(ui.ResultText(gs), w-2))
+		renderer.DrawText(colX, top+rows+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), ui.Truncate(ui.ResultText(gs), colW))
 		renderer.Show()
 		return
 	}
 
 	key, shift, ok := nextKeyInfo([]rune(gs.TargetSentence), []rune(gs.UserInput))
 
-	kbTop := 1 + rows + 2
-	showKB := h >= kbTop+kbRowsH+1 && w >= kbWidth+2
-	showHands := showKB && h >= kbTop+kbRowsH+1+handsH+1 && w >= 2*handWidth+6
-
+	kbTop := top + rows + 1
 	if showKB {
 		t.drawKeyboard(renderer, (w-kbWidth)/2, kbTop, key, shift, ok)
 	}
