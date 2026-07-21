@@ -36,14 +36,16 @@ type Game struct {
 	resultLine string        // PB/recent line for the finished round ("" = hide)
 	resultBest bool          // true when resultLine announces a new PB
 	showGraph  bool          // finished round: the wpm graph view is up
+	autoGraph  bool          // pop the graph view whenever a round finishes
 }
 
 // Create a new game. timeLimit > 0 enables time-attack mode. sentences is the
 // pool the chosen theme draws targets from; an empty pool falls back to the
 // default English set. targetGen, when non-nil, replaces the pool entirely
 // (the "words" source). meta labels recorded rounds; st may be nil to disable
-// persistence.
-func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, sentences []string, targetGen func() string, meta RoundMeta, st *store.Store) (*Game, error) {
+// persistence. autoGraph pops the graph view whenever a round finishes —
+// except on the cozy theme, whose result screen already embeds the chart.
+func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, sentences []string, targetGen func() string, meta RoundMeta, st *store.Store, autoGraph bool) (*Game, error) {
 	if len(sentences) == 0 {
 		sentences = domain.Sentences
 	}
@@ -51,7 +53,8 @@ func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, senten
 	theme.ResetState(state)
 
 	return &Game{screen: s, renderer: ui.NewRenderer(s), state: state, theme: theme,
-		meta: meta, store: st, history: st.LoadHistory()}, nil
+		meta: meta, store: st, history: st.LoadHistory(),
+		autoGraph: autoGraph && meta.Theme != "cozy"}, nil
 }
 
 // Run the game (with a real-time Ticker)
@@ -136,6 +139,10 @@ func (g *Game) finalizeRound() {
 	prevBest, hadBest := store.Best(g.history, k)
 	g.history = append(g.history, r)
 	g.store.AppendRound(r)
+
+	if g.autoGraph && len(g.state.WPMSamples) >= 2 {
+		g.showGraph = true
+	}
 
 	switch {
 	case store.PBEligible(r) && r.WPM > 0 && (!hadBest || r.WPM > prevBest):

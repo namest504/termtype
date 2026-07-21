@@ -50,10 +50,12 @@ top-right corner while you type, on every theme.
 
 ### Result graph
 
-While you type, TermType samples your WPM once a second. After a round,
-press `g` for a WPM-over-time graph with an accuracy/raw/cpm summary — the
-`cozy` theme draws it right on its result screen. The series is saved with
-each round.
+While you type, TermType samples your WPM once a second. When a round ends
+the WPM-over-time graph pops up with an accuracy/raw/cpm summary; `g`
+toggles back to the theme's own result screen. The `cozy` theme draws the
+chart right on its result screen instead. Turn the automatic graph off from
+the menu (`g` — `Graph: Off`) and it stays on the `g` key only. The series
+is saved with each round.
 
 ### History & personal bests
 
