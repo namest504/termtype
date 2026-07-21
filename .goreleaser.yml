@@ -33,6 +33,7 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+      - '^Merge pull request'
 
 # 릴리스 시 Homebrew formula를 자동 생성해 tap 저장소(homebrew-termtype)에 푸시합니다.
 # 생성되는 formula는 미리 빌드된 바이너리를 설치하므로 사용자 PC에 Go가 필요 없습니다.
