@@ -2,7 +2,7 @@
 
 Typing practice in your terminal.
 
-![TermType — the claude theme](docs/termtype-claude.gif)
+![TermType — the cozy theme](docs/termtype-cozy.gif)
 
 - **Seven themes** — from a warm minimal screen (`cozy`, the default) to a
   log stream, a Matrix rain, a git diff, a hex editor, and a live Claude
@@ -107,7 +107,9 @@ It is auto-enabled for non-UTF-8 locales, or force it with
 - `diff` — looks like a git diff.
 - `claude` — composing a message in a live Claude Code session.
 
-The `matrix` and `log` themes in action:
+The `claude`, `matrix`, and `log` themes in action:
+
+![claude theme](docs/termtype-claude.gif)
 
 ![matrix theme](docs/termtype-matrix.gif)
 

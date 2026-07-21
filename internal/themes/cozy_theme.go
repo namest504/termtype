@@ -15,17 +15,19 @@ func init() {
 
 // --- Cozy Theme --- //
 
-// CozyTheme is a warm, quiet typing screen: a muted dark background, a
+// CozyTheme is a warm, quiet typing screen: a deep charcoal background, a
 // three-line window over the target text centered on screen, typed text in
-// cream, mistakes in red, upcoming text dimmed, and a small timer above.
+// ivory, mistakes in a soft rose, upcoming text dimmed. A terracotta
+// reading marker sits by the current line, the next rune carries an
+// underline cursor, and a small timer rests under the text.
 type CozyTheme struct{}
 
 var (
-	cozyBg     = tcell.NewRGBColor(31, 29, 27)    // warm near-black
-	cozyCream  = tcell.NewRGBColor(213, 196, 161) // typed, correct
-	cozyDim    = tcell.NewRGBColor(110, 103, 92)  // not yet typed
-	cozyRed    = tcell.NewRGBColor(204, 102, 102) // typed, wrong
-	cozyAccent = tcell.NewRGBColor(184, 187, 38)  // timer and highlights
+	cozyBg     = tcell.NewRGBColor(25, 23, 21)    // deep warm charcoal
+	cozyCream  = tcell.NewRGBColor(230, 223, 208) // typed, correct — soft ivory
+	cozyDim    = tcell.NewRGBColor(94, 87, 78)    // not yet typed
+	cozyRed    = tcell.NewRGBColor(212, 125, 125) // typed, wrong — soft rose
+	cozyAccent = tcell.NewRGBColor(204, 122, 82)  // terracotta: marker, cursor, timer
 )
 
 // cozyVisibleLines is the height of the window over the wrapped target.
@@ -102,20 +104,22 @@ func (t *CozyTheme) drawTyping(renderer domain.Renderer, gs *domain.GameState, w
 
 	startX := (w - col) / 2
 	textTop := h/2 - 1
-	if textTop < 2 {
-		textTop = 2
+	if textTop < 1 {
+		textTop = 1
 	}
-
-	// Timer: the countdown in time attack, elapsed seconds otherwise.
-	secs := int(gs.Elapsed().Seconds())
-	if gs.TimeLimit > 0 {
-		secs = int(gs.Remaining().Seconds() + 0.999)
-	}
-	renderer.DrawText(startX, textTop-2, tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg),
-		fmt.Sprintf("%ds", secs))
 
 	cursorLine := cursorLineOf(wrapped, len(input))
 	winStart := cozyWindowStart(len(wrapped), cursorLine)
+
+	// A small reading marker by the line being typed.
+	marker := '▎'
+	if ui.IsASCII() {
+		marker = '|'
+	}
+	if row := cursorLine - winStart; row >= 0 && row < cozyVisibleLines && startX >= 2 {
+		renderer.DrawRune(startX-2, textTop+row, marker,
+			tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg))
+	}
 
 	// Rune offset of the first visible line.
 	offset := 0
@@ -135,13 +139,23 @@ func (t *CozyTheme) drawTyping(renderer domain.Renderer, gs *domain.GameState, w
 			case idx < len(input):
 				style = tcell.StyleDefault.Foreground(cozyRed).Background(cozyBg)
 			case idx == len(input):
-				// Block cursor on the next rune to type.
-				style = tcell.StyleDefault.Foreground(cozyBg).Background(cozyCream)
+				// Underline cursor on the next rune to type.
+				style = tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg).Underline(true)
 			}
 			x += renderer.DrawRune(x, textTop+row, r, style)
 		}
 		offset += len(lineRunes)
 	}
+
+	// Timer under the text, tucked to the right edge of the column: the
+	// countdown in time attack, elapsed seconds otherwise.
+	secs := int(gs.Elapsed().Seconds())
+	if gs.TimeLimit > 0 {
+		secs = int(gs.Remaining().Seconds() + 0.999)
+	}
+	status := fmt.Sprintf("%ds", secs)
+	renderer.DrawText(startX+col-runewidth.StringWidth(status), textTop+cozyVisibleLines+1,
+		tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg), status)
 	renderer.HideCursor()
 }
 
