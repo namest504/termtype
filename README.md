@@ -1,10 +1,22 @@
 # TermType
 
-Typing practice in your terminal. Six themes — a plain screen, a log stream,
-Matrix rain, a hex editor, a git diff, and a live Claude Code session — with
-English and Korean sentences, personal bests, and a stats summary.
+Typing practice in your terminal.
 
 ![TermType — the claude theme](docs/termtype-claude.gif)
+
+- **Seven themes** — from a warm minimal screen (`cozy`, the default) to a
+  log stream, a Matrix rain, a git diff, a hex editor, and a live Claude
+  Code session.
+- **Sentences or words** — the built-in sentence pool, or a random stream
+  of common English words.
+- **Normal and Time Attack** — untimed rounds, or a 15/30/60-second race.
+- **English and Korean** — Korean IME input with correct wide-glyph layout.
+- **WPM graph** — sampled every second while you type, drawn as a smooth
+  curve when the round ends.
+- **History and personal bests** — every round is saved; replay past
+  graphs from the menu.
+- **Runs anywhere** — macOS, Linux, and Windows; layouts reflow down to 20
+  columns, with an `--ascii` mode for limited fonts.
 
 ## Installation
 
@@ -26,91 +38,76 @@ Grab an archive for macOS, Linux, or Windows from the
 [releases page](https://github.com/namest504/termtype/releases) and put the
 `termtype` binary on your `PATH`.
 
-## Usage
+## Quick start
 
 ```bash
 termtype
 ```
 
-Pick a theme with `↑`/`↓`, a mode with `Tab`, the text with `Space`, and a
-language with `←`/`→`, then press `Enter`. The menu remembers your last
-selections.
+The menu opens on the `cozy` theme and remembers your selections for the
+next launch:
 
-- **Normal** — type the target; WPM and accuracy are shown when you finish.
-- **Time Attack** — race a 15s, 30s, or 60s countdown and type as much as you
-  can before time runs out.
-- **Text** — type the built-in sentences, or a random stream of common
-  English words.
-- **Language** — choose English or Korean (한국어). Korean uses an IME, and the
-  themes lay out the wide Hangul glyphs correctly. The words stream is
-  English-only for now.
+- `↑`/`↓` — theme
+- `Tab` — mode: Normal, or Time Attack (15s / 30s / 60s)
+- `Space` — text: built-in sentences, or a stream of common English words
+- `←`/`→` — language: English or Korean (한국어; the words stream is
+  English-only for now)
+- `g` — result graph on/off
+- `h` — history browser
+- `Enter` — start, `Esc` — quit
 
-A live WPM/accuracy readout (and the countdown, in Time Attack) is shown in the
-top-right corner while you type, on every theme.
+While you type, a live WPM/accuracy readout (and the countdown, in Time
+Attack) sits in the top-right corner on every theme. `Ctrl-P` pauses,
+`Esc` goes back to the menu, and `Ctrl-C` quits from anywhere.
 
-### Result graph
+## Result graph
 
-While you type, TermType samples your WPM once a second. When a round ends
-the WPM-over-time graph pops up with an accuracy/raw/cpm summary; `g`
-toggles back to the theme's own result screen. The `cozy` theme draws the
-chart right on its result screen instead. Turn the automatic graph off from
-the menu (`g` — `Graph: Off`) and it stays on the `g` key only. The series
-is saved with each round.
+TermType samples your WPM once a second. When a round ends, a
+WPM-over-time graph pops up with an accuracy/raw/cpm summary; `g` toggles
+back to the theme's own result screen. The `cozy` theme draws the chart
+right on its result screen instead. Turn the automatic graph off from the
+menu (`g` — `Graph: Off`) and it stays on the `g` key only.
 
-### History & personal bests
+## History & personal bests
 
-Every finished round is saved to `~/.config/termtype/history.jsonl` (or your
-platform's config directory). The result screen shows `NEW BEST!` when you set
-a personal best, or your current best plus a sparkline of the last 10 rounds.
-Bests are tracked separately per mode and language.
+Every finished round is saved to `~/.config/termtype/history.jsonl` (or
+your platform's config directory). The result screen shows `NEW BEST!`
+when you set a personal best, or your current best plus a sparkline of the
+last 10 rounds. Bests are tracked separately per mode, language, and text
+source.
 
 Press `h` on the menu to browse past rounds — pick one to replay its WPM
-graph (rounds recorded before the graph feature show their summary only).
-
-See a summary of your history without starting the game:
+graph. For a summary without starting the game:
 
 ```bash
 termtype --stats
 ```
 
-### Any terminal, any width
+## Any terminal, any width
 
-TermType adapts to the terminal: the core themes reflow down to 20 columns, the
-menu and overlays shrink to fit, and the layout reflows as you resize.
-
-For terminals or fonts that can't render the Unicode symbols (boxes, the
-spinner, ⏱/⏸), run with `--ascii` for a plain-ASCII rendering:
+The layout reflows as you resize, down to 20 columns. For terminals or
+fonts that can't render the Unicode symbols (boxes, the spinner, ⏱/⏸, the
+braille graph), run with `--ascii` for a plain-ASCII rendering:
 
 ```bash
 termtype --ascii
 ```
 
-It is auto-enabled for non-UTF-8 locales, or you can force it with
+It is auto-enabled for non-UTF-8 locales, or force it with
 `TERMTYPE_ASCII=1`.
 
-### Controls
+## Themes
 
-- `Ctrl-P` — pause / resume
-- `Enter` — next sentence (after finishing)
-- `Esc` — back to the menu (from the menu it quits)
-- `Ctrl-C` — quit from anywhere
+- `cozy` (default) — a warm, minimal screen: three lines of text, a small
+  timer, and nothing else. Pairs well with the words stream.
+- `log` — typing woven into a scrolling log stream.
+- `simple` — a plain, clean screen.
+- `matrix` — green rain, inspired by The Matrix.
+- `hex` — mimics a hex editor.
+- `diff` — looks like a git diff.
+- `claude` — composing a message in a live Claude Code session.
 
-## Available Themes
-
-- `simple`: A simple, clean interface.
-- `cozy`: A warm, minimal screen — three lines of text, a small timer, and
-  nothing else. Pairs well with the words stream.
-- `log`: A theme that simulates a log stream.
-- `matrix`: A theme inspired by The Matrix.
-- `hex`: A theme that mimics a hex editor.
-- `diff`: A theme that looks like a git diff.
-- `claude`: A theme that looks like composing a message in a Claude Code session.
-
-All themes adapt to the terminal size and reflow as you resize the window.
-
-### In action
-
-The `matrix` and `log` themes:
+The `matrix` and `log` themes in action:
 
 ![matrix theme](docs/termtype-matrix.gif)
 
