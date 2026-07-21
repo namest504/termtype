@@ -188,5 +188,5 @@ func (t *CozyTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, w
 		fmt.Sprintf("accuracy: %.1f  raw: %.0f  cpm: %.0f  time: %.0fs",
 			gs.Accuracy, gs.FinalRawWPM, gs.FinalCPM, gs.FinalDurS))
 	drawCentered(y+2, tcell.StyleDefault.Foreground(cozyDim).Background(cozyBg),
-		"enter next  esc quit")
+		"enter next  esc menu")
 }

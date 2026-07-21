@@ -29,7 +29,7 @@ func listTop(top, sel, visible int) int {
 // showHistory is the in-menu history browser: a newest-first list of rounds;
 // Enter opens a round's detail (with the wpm graph when the round has a
 // series), Esc goes back.
-func showHistory(s tcell.Screen, rounds []store.Round) {
+func showHistory(s tcell.Screen, events <-chan tcell.Event, rounds []store.Round) {
 	// Newest first.
 	rev := make([]store.Round, len(rounds))
 	for i, r := range rounds {
@@ -69,8 +69,10 @@ func showHistory(s tcell.Screen, rounds []store.Round) {
 		}
 		s.Show()
 
-		ev := s.PollEvent()
+		ev := <-events
 		switch ev := ev.(type) {
+		case nil:
+			return
 		case *tcell.EventResize:
 			s.Sync()
 		case *tcell.EventKey:

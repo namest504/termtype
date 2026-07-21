@@ -90,7 +90,8 @@ It is auto-enabled for non-UTF-8 locales, or you can force it with
 
 - `Ctrl-P` — pause / resume
 - `Enter` — next sentence (after finishing)
-- `Esc` / `Ctrl-C` — quit
+- `Esc` — back to the menu (from the menu it quits)
+- `Ctrl-C` — quit from anywhere
 
 ## Available Themes
 

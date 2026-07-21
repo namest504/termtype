@@ -119,7 +119,7 @@ func indexOf(n int, match func(int) bool) int {
 	return 0
 }
 
-func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, error) {
+func selectTheme(s tcell.Screen, events <-chan tcell.Event, cfg store.Config, st *store.Store) (selection, error) {
 	var themeNames []string
 	for name := range themes.Themes {
 		themeNames = append(themeNames, name)
@@ -192,8 +192,10 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 		drawText(s, 2, modeRow+4, tcell.StyleDefault.Foreground(tcell.ColorGray), help)
 		s.Show()
 
-		ev := s.PollEvent()
+		ev := <-events
 		switch ev := ev.(type) {
+		case nil:
+			return selection{}, fmt.Errorf("screen closed")
 		case *tcell.EventResize:
 			s.Sync()
 		case *tcell.EventKey:
@@ -219,7 +221,7 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 				case ' ':
 					srcIndex = (srcIndex + 1) % len(textSources)
 				case 'h', 'H':
-					showHistory(s, st.LoadHistory())
+					showHistory(s, events, st.LoadHistory())
 				}
 			case tcell.KeyEnter:
 				name := themeNames[selectedIndex]
@@ -266,41 +268,52 @@ func main() {
 	s.EnablePaste()
 	s.Clear()
 
-	// Select theme, mode, text source, and language
+	// One goroutine owns event polling for the whole program; the menu, the
+	// history browser, and the game all read from this channel, so leaving
+	// one screen for another never loses or steals events.
+	events := make(chan tcell.Event, 8)
+	quit := make(chan struct{})
+	defer close(quit)
+	go s.ChannelEvents(events, quit)
+
+	// Menu ↔ game loop: Esc in a game returns here; Esc on the menu (or
+	// Ctrl-C anywhere) leaves the program.
 	st := store.Default()
 	cfg := st.LoadConfig()
-	sel, err := selectTheme(s, cfg, st)
-	if err != nil {
-		return // user cancelled; the deferred Fini restores the terminal
-	}
-
-	// Remember the selections for the next launch.
-	cfg.Theme, cfg.Mode = sel.themeName, store.ModeString(sel.limit)
-	cfg.Source, cfg.Lang = sel.src.code, sel.lang.code
-	st.SaveConfig(cfg)
-
-	// The words source replaces the sentence pool with a generated stream:
-	// a fixed 25-word target in Normal mode, and a buffer the countdown can
-	// never outrun in Time Attack.
-	sentences := sel.lang.sentences
-	langCode := sel.lang.code
-	var targetGen func() string
-	if sel.src.code == "words" {
-		langCode = "en"
-		sentences = nil
-		count := normalWordCount
-		if sel.limit > 0 {
-			count = streamWordCount
+	for {
+		sel, err := selectTheme(s, events, cfg, st)
+		if err != nil {
+			return // menu cancelled; the deferred Fini restores the terminal
 		}
-		targetGen = func() string { return domain.RandomWords(count) }
-	}
 
-	// Create and run the game
-	meta := app.RoundMeta{Theme: sel.themeName, Lang: langCode, Source: sel.src.code}
-	game, err := app.NewGame(s, sel.theme, sel.limit, sentences, targetGen, meta, st)
-	if err != nil {
-		return
-	}
+		// Remember the selections for the next launch.
+		cfg.Theme, cfg.Mode = sel.themeName, store.ModeString(sel.limit)
+		cfg.Source, cfg.Lang = sel.src.code, sel.lang.code
+		st.SaveConfig(cfg)
 
-	game.Run()
+		// The words source replaces the sentence pool with a generated stream:
+		// a fixed 25-word target in Normal mode, and a buffer the countdown can
+		// never outrun in Time Attack.
+		sentences := sel.lang.sentences
+		langCode := sel.lang.code
+		var targetGen func() string
+		if sel.src.code == "words" {
+			langCode = "en"
+			sentences = nil
+			count := normalWordCount
+			if sel.limit > 0 {
+				count = streamWordCount
+			}
+			targetGen = func() string { return domain.RandomWords(count) }
+		}
+
+		meta := app.RoundMeta{Theme: sel.themeName, Lang: langCode, Source: sel.src.code}
+		game, err := app.NewGame(s, sel.theme, sel.limit, sentences, targetGen, meta, st)
+		if err != nil {
+			return
+		}
+		if game.Run(events) {
+			return
+		}
+	}
 }

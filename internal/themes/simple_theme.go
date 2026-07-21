@@ -43,7 +43,7 @@ func (t *SimpleTheme) drawTypingScreen(renderer domain.Renderer, gs *domain.Game
 		PrefixWidth: 0,
 		CenterText:  false,
 	})
-	renderer.DrawText(1, startY+len(ui.WrapText(gs.TargetSentence, w-2))+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), "(ESC to exit)")
+	renderer.DrawText(1, startY+len(ui.WrapText(gs.TargetSentence, w-2))+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), "(Esc for menu)")
 }
 
 func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.GameState, startY int) {
