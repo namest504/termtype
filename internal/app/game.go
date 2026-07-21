@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -57,24 +56,21 @@ func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, senten
 		autoGraph: autoGraph && meta.Theme != "cozy"}, nil
 }
 
-// Run the game (with a real-time Ticker)
-func (g *Game) Run() {
+// Run plays rounds until the player leaves: Esc returns false (back to the
+// menu), Ctrl-C returns true (quit the program). events is the shared
+// screen-event channel owned by main.
+func (g *Game) Run(events <-chan tcell.Event) (quit bool) {
 	ticker := time.NewTicker(1 * time.Second) // Tick every second
 	defer ticker.Stop()
-
-	eventChan := make(chan tcell.Event)
-	go func() {
-		for {
-			eventChan <- g.screen.PollEvent()
-		}
-	}()
 
 	g.render()
 
 	for {
 		select {
-		case ev := <-eventChan:
+		case ev := <-events:
 			switch ev := ev.(type) {
+			case nil:
+				return true // screen torn down
 			case *tcell.EventPaste:
 				// Pasting is intentionally ignored — type the text yourself.
 			case *tcell.EventResize:
@@ -88,13 +84,17 @@ func (g *Game) Run() {
 			case *tcell.EventKey:
 				w, _ := g.screen.Size()
 				if w < minWidth {
-					// Do not process keys if screen is too small, except quit keys
-					if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
-						g.screen.Fini()
-						os.Exit(0)
+					// Only the leave keys work while the screen is too small.
+					if ev.Key() == tcell.KeyEscape {
+						return false
+					}
+					if ev.Key() == tcell.KeyCtrlC {
+						return true
 					}
 				} else {
-					g.handleKeyEvent(ev)
+					if back, quit := g.handleKeyEvent(ev); back {
+						return quit
+					}
 					g.render()
 				}
 			}
@@ -207,7 +207,7 @@ func (g *Game) drawGraphView() {
 	centered(top+chartH+3, tcell.StyleDefault.Foreground(tcell.ColorTeal),
 		fmt.Sprintf("accuracy: %.1f  raw: %.0f  cpm: %.0f  time: %.0fs",
 			g.state.Accuracy, g.state.FinalRawWPM, g.state.FinalCPM, g.state.FinalDurS))
-	centered(top+chartH+5, tcell.StyleDefault.Foreground(tcell.ColorGray), "g back  enter next  esc quit")
+	centered(top+chartH+5, tcell.StyleDefault.Foreground(tcell.ColorGray), "g back  enter next  esc menu")
 	g.renderer.HideCursor()
 }
 
@@ -304,20 +304,23 @@ func (g *Game) drawOverlay() {
 	}
 }
 
-// Handle key events
-func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
-	if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
-		g.screen.Fini()
-		os.Exit(0)
+// handleKeyEvent processes one key. back means leave the game loop; quit
+// distinguishes Ctrl-C (quit the program) from Esc (back to the menu).
+func (g *Game) handleKeyEvent(ev *tcell.EventKey) (back, quit bool) {
+	if ev.Key() == tcell.KeyEscape {
+		return true, false
+	}
+	if ev.Key() == tcell.KeyCtrlC {
+		return true, true
 	}
 
 	// Ctrl-P toggles pause; while paused, all other input is ignored.
 	if ev.Key() == tcell.KeyCtrlP {
 		g.state.TogglePause()
-		return
+		return false, false
 	}
 	if g.state.Paused {
-		return
+		return false, false
 	}
 
 	if g.state.IsFinished {
@@ -328,7 +331,7 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 		case ev.Key() == tcell.KeyRune && (ev.Rune() == 'g' || ev.Rune() == 'G'):
 			g.showGraph = !g.showGraph
 		}
-		return
+		return false, false
 	}
 
 	switch ev.Key() {
@@ -350,4 +353,5 @@ func (g *Game) handleKeyEvent(ev *tcell.EventKey) {
 	if len([]rune(g.state.UserInput)) >= len([]rune(g.state.TargetSentence)) {
 		g.finalizeRound()
 	}
+	return false, false
 }
