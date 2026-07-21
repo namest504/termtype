@@ -106,6 +106,10 @@ It is auto-enabled for non-UTF-8 locales, or force it with
 - `hex` — mimics a hex editor.
 - `diff` — looks like a git diff.
 - `claude` — composing a message in a live Claude Code session.
+- `tutor` — a touch-typing tutor: a finger-zone-colored keyboard with the
+  next key highlighted, and a pair of hands pointing at the finger to use.
+  Key guidance covers the English layout; Korean rounds show the layout
+  without hints.
 
 The `claude`, `matrix`, and `log` themes in action:
 
