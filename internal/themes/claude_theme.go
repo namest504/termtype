@@ -2,6 +2,7 @@ package themes
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -22,6 +23,7 @@ type ClaudeTheme struct{}
 
 type ClaudeThemeState struct {
 	tick int
+	scen int // index into claudeScenarios for this round
 }
 
 const claudePromptWidth = 3
@@ -42,27 +44,66 @@ type cLine struct {
 	text string
 }
 
-// Completed earlier turns shown faint in the scrollback.
-var claudeHistory = []cLine{
-	{cHuman, "split the monolith handler into smaller functions"},
-	{cAsst, "I'll extract request parsing and validation first."},
-	{cTool, "Read handler.go (210 lines)"},
-	{cTool, "Updated handler.go (+96 -120)"},
-	{cAsst, "Done - split into parseRequest, validate, and dispatch."},
+// claudeScenario is one session's conversation: completed earlier turns in
+// the scrollback, and a most-recent turn that streams in line by line.
+type claudeScenario struct {
+	history []cLine
+	active  []cLine
 }
 
-// The most recent turn, revealed line by line over time (streaming).
-var claudeActive = []cLine{
-	{cAsst, "I'll add graceful shutdown so in-flight work can finish."},
-	{cTool, "Read server.go (142 lines)"},
-	{cTool, "Updated server.go (+38 -6)"},
-	{cTool, "Updated main.go (+9 -1)"},
-	{cAsst, "Done - the server now drains connections on SIGTERM."},
+var claudeScenarios = []claudeScenario{
+	{
+		history: []cLine{
+			{cHuman, "split the monolith handler into smaller functions"},
+			{cAsst, "I'll extract request parsing and validation first."},
+			{cTool, "Read handler.go (210 lines)"},
+			{cTool, "Updated handler.go (+96 -120)"},
+			{cAsst, "Done - split into parseRequest, validate, and dispatch."},
+		},
+		active: []cLine{
+			{cAsst, "I'll add graceful shutdown so in-flight work can finish."},
+			{cTool, "Read server.go (142 lines)"},
+			{cTool, "Updated server.go (+38 -6)"},
+			{cTool, "Updated main.go (+9 -1)"},
+			{cAsst, "Done - the server now drains connections on SIGTERM."},
+		},
+	},
+	{
+		history: []cLine{
+			{cHuman, "add retry with backoff to the fetcher"},
+			{cAsst, "I'll wrap the client call in a retry loop."},
+			{cTool, "Read fetch.go (88 lines)"},
+			{cTool, "Updated fetch.go (+41 -7)"},
+			{cAsst, "Done - three attempts with jittered backoff."},
+		},
+		active: []cLine{
+			{cAsst, "I'll make the timeout configurable next."},
+			{cTool, "Read config.go (54 lines)"},
+			{cTool, "Updated config.go (+12 -2)"},
+			{cTool, "Updated fetch.go (+6 -3)"},
+			{cAsst, "Done - FETCH_TIMEOUT now overrides the default."},
+		},
+	},
+	{
+		history: []cLine{
+			{cHuman, "why is the cache test flaky"},
+			{cAsst, "The TTL assertion races the clock; I'll inject a fake timer."},
+			{cTool, "Read cache_test.go (131 lines)"},
+			{cTool, "Updated cache_test.go (+18 -9)"},
+			{cAsst, "Done - the test drives a fake clock now."},
+		},
+		active: []cLine{
+			{cAsst, "I'll run the suite to confirm the flake is gone."},
+			{cTool, "go test ./... (42 tests)"},
+			{cTool, "PASS in 3.1s"},
+			{cAsst, "All green - want me to check the other suites?"},
+		},
+	},
 }
 
-func claudeToolCount() int {
+func claudeToolCount(active []cLine) int {
 	n := 0
-	for _, l := range claudeActive {
+	for _, l := range active {
 		if l.kind == cTool {
 			n++
 		}
@@ -73,9 +114,14 @@ func claudeToolCount() int {
 func (t *ClaudeTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
 	gs.TargetSentence = gs.RandomSentence()
-	if _, ok := gs.CustomState.(*ClaudeThemeState); !ok {
-		gs.CustomState = &ClaudeThemeState{}
+	st, ok := gs.CustomState.(*ClaudeThemeState)
+	if !ok {
+		st = &ClaudeThemeState{}
+		gs.CustomState = st
 	}
+	// A fresh round picks a scenario and replays its stream from the top.
+	st.tick = 0
+	st.scen = rand.Intn(len(claudeScenarios))
 }
 
 func (t *ClaudeTheme) OnTick(gs *domain.GameState) {
@@ -128,18 +174,20 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 	boxTop := boxBottom - (boxRows + 1)
 	statusRow := boxTop - 1
 
+	sc := claudeScenarios[st.scen%len(claudeScenarios)]
+
 	// How much of the active (in-progress) turn has streamed in so far.
-	reveal := len(claudeActive)
+	reveal := len(sc.active)
 	if !gs.IsFinished {
 		reveal = st.tick / claudeRevealEvery
-		if reveal > len(claudeActive) {
-			reveal = len(claudeActive)
+		if reveal > len(sc.active) {
+			reveal = len(sc.active)
 		}
 	}
 
-	convo := make([]cLine, 0, len(claudeHistory)+reveal)
-	convo = append(convo, claudeHistory...)
-	convo = append(convo, claudeActive[:reveal]...)
+	convo := make([]cLine, 0, len(sc.history)+reveal)
+	convo = append(convo, sc.history...)
+	convo = append(convo, sc.active[:reveal]...)
 
 	// Render the conversation bottom-anchored, ending just above the status row.
 	firstRow := statusRow - len(convo)
@@ -150,7 +198,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 		}
 	}
 
-	t.drawStatus(renderer, gs, st, reveal, statusRow, w, orange, faint)
+	t.drawStatus(renderer, gs, st, sc.active, reveal, statusRow, w, orange, faint)
 	t.drawBox(renderer, boxTop, boxBottom, w, dim)
 	t.drawInput(renderer, gs, wrapped, boxTop, boxRows, w, orange, dim)
 	t.drawHint(renderer, gs, hintRow, w, dim, faint)
@@ -173,7 +221,7 @@ func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine
 	}
 }
 
-func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, reveal, statusRow, w int, orange, faint tcell.Style) {
+func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, active []cLine, reveal, statusRow, w int, orange, faint tcell.Style) {
 	if statusRow < 0 {
 		return
 	}
@@ -182,10 +230,10 @@ func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState,
 		renderer.DrawText(0, statusRow, orange, ui.Truncate(gl.AsstDot+" Message sent", w))
 		return
 	}
-	if reveal >= len(claudeActive) {
-		doneAt := len(claudeActive) * claudeRevealEvery
+	if reveal >= len(active) {
+		doneAt := len(active) * claudeRevealEvery
 		green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-		msg := fmt.Sprintf("%s responded in %ds %s %d edits %s esc to interrupt", gl.Check, doneAt, gl.Sep, claudeToolCount(), gl.Sep)
+		msg := fmt.Sprintf("%s responded in %ds %s %d edits %s esc to interrupt", gl.Check, doneAt, gl.Sep, claudeToolCount(active), gl.Sep)
 		renderer.DrawText(0, statusRow, green, ui.Truncate(msg, w))
 		return
 	}
