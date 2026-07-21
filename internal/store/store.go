@@ -17,9 +17,14 @@ type Config struct {
 	Theme  string `json:"theme"`
 	Mode   string `json:"mode"`
 	Lang   string `json:"lang"`
-	Source string `json:"source"` // "builtin" | "words"
+	Source string `json:"source"`          // "builtin" | "words"
+	Graph  string `json:"graph,omitempty"` // "" or "on" = auto result graph; "off" = manual (g key)
 	Ghost  bool   `json:"ghost"`
 }
+
+// GraphAuto reports whether the result graph should show automatically
+// after a round. It defaults to on.
+func (c Config) GraphAuto() bool { return c.Graph != "off" }
 
 // Round is one finished typing round — one line in history.jsonl. The
 // RawWPM/CPM/WPMSeries fields were added later and are absent from older

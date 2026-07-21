@@ -107,6 +107,7 @@ type selection struct {
 	limit     time.Duration
 	src       textSource
 	lang      language
+	graphOn   bool
 }
 
 // indexOf returns the index where match is true, or 0.
@@ -147,6 +148,7 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 	modeIndex := indexOf(len(gameModes), func(i int) bool { return store.ModeString(gameModes[i].limit) == cfg.Mode })
 	srcIndex := indexOf(len(textSources), func(i int) bool { return textSources[i].code == cfg.Source })
 	langIndex := indexOf(len(languages), func(i int) bool { return languages[i].code == cfg.Lang })
+	graphOn := cfg.GraphAuto()
 
 	for {
 		s.Clear()
@@ -174,12 +176,17 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 			langLabel = "Language: English"
 		}
 		drawText(s, 2, modeRow+2, tcell.StyleDefault.Foreground(tcell.ColorTeal), langLabel)
+		graphLabel := "Graph: On"
+		if !graphOn {
+			graphLabel = "Graph: Off"
+		}
+		drawText(s, 2, modeRow+3, tcell.StyleDefault.Foreground(tcell.ColorPurple), graphLabel)
 
 		// Pick the widest help line that fits the terminal.
 		sep := " " + gl.Sep + " "
 		full := strings.Join([]string{
 			gl.ArrowUD + " theme", "Tab mode", "Space text", gl.ArrowLR + " language",
-			"h history", gl.Enter + " start", "Esc quit",
+			"g graph", "h history", gl.Enter + " start", "Esc quit",
 		}, sep)
 		compact := strings.Join([]string{gl.ArrowUD + " theme", "Tab mode", "Space text"}, " ")
 		help := full
@@ -189,7 +196,7 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 		if runewidth.StringWidth(help) > w-2 {
 			help = gl.Enter + " start"
 		}
-		drawText(s, 2, modeRow+4, tcell.StyleDefault.Foreground(tcell.ColorGray), help)
+		drawText(s, 2, modeRow+5, tcell.StyleDefault.Foreground(tcell.ColorGray), help)
 		s.Show()
 
 		ev := s.PollEvent()
@@ -218,6 +225,8 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 				switch ev.Rune() {
 				case ' ':
 					srcIndex = (srcIndex + 1) % len(textSources)
+				case 'g', 'G':
+					graphOn = !graphOn
 				case 'h', 'H':
 					showHistory(s, st.LoadHistory())
 				}
@@ -225,7 +234,7 @@ func selectTheme(s tcell.Screen, cfg store.Config, st *store.Store) (selection, 
 				name := themeNames[selectedIndex]
 				return selection{theme: themes.Themes[name], themeName: name,
 					limit: gameModes[modeIndex].limit, src: textSources[srcIndex],
-					lang: languages[langIndex]}, nil
+					lang: languages[langIndex], graphOn: graphOn}, nil
 			}
 		}
 	}
@@ -277,6 +286,10 @@ func main() {
 	// Remember the selections for the next launch.
 	cfg.Theme, cfg.Mode = sel.themeName, store.ModeString(sel.limit)
 	cfg.Source, cfg.Lang = sel.src.code, sel.lang.code
+	cfg.Graph = "on"
+	if !sel.graphOn {
+		cfg.Graph = "off"
+	}
 	st.SaveConfig(cfg)
 
 	// The words source replaces the sentence pool with a generated stream:
@@ -297,7 +310,7 @@ func main() {
 
 	// Create and run the game
 	meta := app.RoundMeta{Theme: sel.themeName, Lang: langCode, Source: sel.src.code}
-	game, err := app.NewGame(s, sel.theme, sel.limit, sentences, targetGen, meta, st)
+	game, err := app.NewGame(s, sel.theme, sel.limit, sentences, targetGen, meta, st, sel.graphOn)
 	if err != nil {
 		return
 	}

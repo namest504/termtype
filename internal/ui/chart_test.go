@@ -41,6 +41,45 @@ func TestChartRowsDegenerate(t *testing.T) {
 	}
 }
 
+func TestChartPixelRowsInterpolates(t *testing.T) {
+	// Two samples over four pixel columns: the middle columns interpolate.
+	rows := chartPixelRows([]float64{0, 30}, 4, 31)
+	want := []int{30, 20, 10, 0}
+	for i, w := range want {
+		if rows[i] != w {
+			t.Errorf("pixel col %d = %d, want %d (rows %v)", i, rows[i], w, rows)
+		}
+	}
+}
+
+func TestChartPixelRowsFlatAndDegenerate(t *testing.T) {
+	for _, r := range chartPixelRows([]float64{76, 76}, 8, 8) {
+		if r != 4 {
+			t.Errorf("flat series pixel row = %d, want middle 4", r)
+		}
+	}
+	if chartPixelRows([]float64{1}, 8, 8) != nil {
+		t.Error("single sample should draw nothing")
+	}
+}
+
+func TestBrailleBitsDistinct(t *testing.T) {
+	seen := map[int]bool{}
+	sum := 0
+	for _, row := range brailleBits {
+		for _, b := range row {
+			if seen[b] {
+				t.Errorf("bit %#x repeated", b)
+			}
+			seen[b] = true
+			sum |= b
+		}
+	}
+	if sum != 0xFF {
+		t.Errorf("bits cover %#x, want 0xFF", sum)
+	}
+}
+
 func TestChartRowsCompress(t *testing.T) {
 	series := make([]float64, 120) // longer than the chart is wide
 	for i := range series {
