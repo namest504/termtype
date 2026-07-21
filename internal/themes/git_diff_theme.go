@@ -11,54 +11,46 @@ func init() {
 	Themes["diff"] = &DiffTheme{}
 }
 
-// DiffTheme mimics a git diff UI.
+// DiffTheme mimics a git diff UI: the target is the added hunk, typed over
+// a plausible bit of code with a couple of removed lines above it.
 type DiffTheme struct{}
 
-type DiffThemeState struct {
-	ContextLines []string
+// diffLine is one non-target row of the fake hunk.
+type diffLine struct {
+	mark rune // ' ' unchanged context, '-' removed
+	text string
 }
 
-var fakeCode = []string{
-	" func main() {",
-	" ",
-	" ",
-	" ",
-	" }",
+var diffLead = []diffLine{
+	{' ', "func handleRequest(w http.ResponseWriter, r *http.Request) {"},
+	{' ', "    defer r.Body.Close()"},
+	{'-', "    data, _ := io.ReadAll(r.Body)"},
+	{'-', "    process(data)"},
+}
+
+var diffTail = []diffLine{
+	{' ', "    w.WriteHeader(http.StatusOK)"},
+	{' ', "}"},
 }
 
 func (t *DiffTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
 	gs.TargetSentence = gs.RandomSentence()
-
-	state := &DiffThemeState{}
-	state.ContextLines = make([]string, 5)
-	copy(state.ContextLines, fakeCode)
-	gs.CustomState = state
 }
 
 func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
-	state, ok := gs.CustomState.(*DiffThemeState)
-	if !ok {
-		return
-	}
 	renderer.Clear()
 	w, h := renderer.Size()
 
-	// Draw context lines
-	renderer.DrawText(0, 0, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "diff --git a/main.go b/main.go")
-	renderer.DrawText(0, 1, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "--- a/main.go")
-	renderer.DrawText(0, 2, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "+++ b/main.go")
-	renderer.DrawText(0, 3, tcell.StyleDefault.Foreground(tcell.ColorBlue), "@@ -1,5 +1,5 @@")
+	dim := tcell.StyleDefault.Foreground(tcell.ColorDimGray)
+	renderer.DrawText(0, 0, dim, "diff --git a/server/handler.go b/server/handler.go")
+	renderer.DrawText(0, 1, dim, "--- a/server/handler.go")
+	renderer.DrawText(0, 2, dim, "+++ b/server/handler.go")
+	renderer.DrawText(0, 3, tcell.StyleDefault.Foreground(tcell.ColorBlue), "@@ -12,8 +12,9 @@")
 
-	y := 4
-	for i, line := range state.ContextLines {
-		if i == 2 { // where the sentence goes (may span several wrapped rows)
-			y = t.drawTarget(renderer, gs, y, w, h)
-		} else {
-			renderer.DrawText(0, y, tcell.StyleDefault, " "+line)
-			y++
-		}
-	}
+	y := t.drawContext(renderer, diffLead, 4, w)
+	y = t.drawTarget(renderer, gs, y, w, h)
+	y = t.drawContext(renderer, diffTail, y, w)
 
 	if gs.IsFinished {
 		renderer.HideCursor()
@@ -66,6 +58,21 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 	}
 
 	renderer.Show()
+}
+
+// drawContext renders unchanged and removed hunk lines and returns the next
+// free row.
+func (t *DiffTheme) drawContext(renderer domain.Renderer, lines []diffLine, y, w int) int {
+	removed := tcell.StyleDefault.Foreground(tcell.ColorRed)
+	for _, ln := range lines {
+		style, mark := tcell.StyleDefault, " "
+		if ln.mark == '-' {
+			style, mark = removed, "-"
+		}
+		renderer.DrawText(0, y, style, ui.Truncate(mark+" "+ln.text, w))
+		y++
+	}
+	return y
 }
 
 // drawTarget renders the target as one or more "+ " diff lines, wrapping to the
