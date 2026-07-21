@@ -73,14 +73,7 @@ func cozyColumnWidth(w int) int {
 // cozyWindowStart returns the first visible line of the window so the cursor
 // line stays on the middle row where possible.
 func cozyWindowStart(totalLines, cursorLine int) int {
-	start := cursorLine - 1
-	if start > totalLines-cozyVisibleLines {
-		start = totalLines - cozyVisibleLines
-	}
-	if start < 0 {
-		start = 0
-	}
-	return start
+	return ui.WindowStart(totalLines, cursorLine, cozyVisibleLines)
 }
 
 // cursorLineOf returns the wrapped line the next rune to type falls on.

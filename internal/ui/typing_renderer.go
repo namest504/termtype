@@ -16,13 +16,34 @@ type TypingRendererOptions struct {
 	PrefixWidth int
 	// CenterText controls whether the text is center-aligned.
 	CenterText bool
+	// MaxLines caps how many wrapped lines are on screen at once; 0 draws
+	// them all. When the target wraps to more lines (e.g. a words stream),
+	// a MaxLines-tall window follows the cursor.
+	MaxLines int
 }
 
 // TypingRenderer holds the shared logic for drawing the typing area and cursor.
 type TypingRenderer struct{}
 
-// Draw renders the target sentence, user input, and cursor.
-func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, opts TypingRendererOptions) {
+// LineOfRune returns the wrapped line the rune at idx falls on.
+func LineOfRune(wrapped []string, idx int) int {
+	offset := 0
+	for i, line := range wrapped {
+		n := len([]rune(line))
+		if idx < offset+n {
+			return i
+		}
+		offset += n
+	}
+	if len(wrapped) == 0 {
+		return 0
+	}
+	return len(wrapped) - 1
+}
+
+// Draw renders the target sentence, user input, and cursor. It returns the
+// number of text rows drawn, so callers can lay out content underneath.
+func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, opts TypingRendererOptions) int {
 	// Calculate the available text width.
 	availableWidth := opts.Width
 	if !opts.CenterText {
@@ -36,10 +57,22 @@ func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, o
 	}
 	wrappedTarget := WrapText(gs.TargetSentence, availableWidth)
 	inputRunes := []rune(gs.UserInput)
+
+	// Window the wrapped lines around the cursor when they exceed MaxLines.
+	winStart := 0
+	lines := wrappedTarget
+	if opts.MaxLines > 0 && len(wrappedTarget) > opts.MaxLines {
+		winStart = WindowStart(len(wrappedTarget), LineOfRune(wrappedTarget, len(inputRunes)), opts.MaxLines)
+		lines = wrappedTarget[winStart : winStart+opts.MaxLines]
+	}
+
 	inputOffset := 0
+	for i := 0; i < winStart; i++ {
+		inputOffset += len([]rune(wrappedTarget[i]))
+	}
 
 	// Draw the text.
-	for lineIdx, line := range wrappedTarget {
+	for lineIdx, line := range lines {
 		lineRunes := []rune(line)
 
 		// Calculate the starting X coordinate for the current line.
@@ -83,10 +116,11 @@ func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, o
 	}
 
 	// Draw the cursor.
-	tr.drawCursor(renderer, wrappedTarget, inputRunes, opts)
+	tr.drawCursor(renderer, wrappedTarget, winStart, len(lines), inputRunes, opts)
+	return len(lines)
 }
 
-func (tr *TypingRenderer) drawCursor(renderer domain.Renderer, wrappedTarget []string, inputRunes []rune, opts TypingRendererOptions) {
+func (tr *TypingRenderer) drawCursor(renderer domain.Renderer, wrappedTarget []string, winStart, winLen int, inputRunes []rune, opts TypingRendererOptions) {
 	cursorLineIdx := 0
 	cursorX := 1 + opts.PrefixWidth
 	if opts.CenterText {
@@ -128,5 +162,13 @@ func (tr *TypingRenderer) drawCursor(renderer domain.Renderer, wrappedTarget []s
 		cursorX = startX + runewidth.StringWidth(lastLine)
 	}
 
-	renderer.ShowCursor(cursorX, opts.StartY+cursorLineIdx)
+	// Translate the cursor line into the visible window.
+	row := cursorLineIdx - winStart
+	if row < 0 {
+		row = 0
+	}
+	if winLen > 0 && row >= winLen {
+		row = winLen - 1
+	}
+	renderer.ShowCursor(cursorX, opts.StartY+row)
 }

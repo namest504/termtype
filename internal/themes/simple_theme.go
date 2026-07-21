@@ -35,15 +35,20 @@ func (t *SimpleTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 }
 
 func (t *SimpleTheme) drawTypingScreen(renderer domain.Renderer, gs *domain.GameState, startY int) {
-	w, _ := renderer.Size()
+	w, h := renderer.Size()
+	maxLines := h - startY - 3 // leave room for the hint line below
+	if maxLines < 1 {
+		maxLines = 1
+	}
 	tr := &ui.TypingRenderer{}
-	tr.Draw(renderer, gs, ui.TypingRendererOptions{
+	rows := tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      startY,
 		Width:       w - 2, // 1 padding on each side
 		PrefixWidth: 0,
 		CenterText:  false,
+		MaxLines:    maxLines,
 	})
-	renderer.DrawText(1, startY+len(ui.WrapText(gs.TargetSentence, w-2))+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), "(Esc for menu)")
+	renderer.DrawText(1, startY+rows+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), "(Esc for menu)")
 }
 
 func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.GameState, startY int) {

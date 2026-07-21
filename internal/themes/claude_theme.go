@@ -107,6 +107,18 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 	}
 	wrapped := ui.WrapText(gs.TargetSentence, wrapWidth)
 	boxRows := len(wrapped)
+	// Cap the input box height so long targets (the words stream) scroll
+	// inside it instead of swallowing the whole screen.
+	maxBox := h - 8
+	if maxBox > 6 {
+		maxBox = 6
+	}
+	if maxBox < 1 {
+		maxBox = 1
+	}
+	if boxRows > maxBox {
+		boxRows = maxBox
+	}
 	if boxRows < 1 {
 		boxRows = 1
 	}
@@ -140,7 +152,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	t.drawStatus(renderer, gs, st, reveal, statusRow, w, orange, faint)
 	t.drawBox(renderer, boxTop, boxBottom, w, dim)
-	t.drawInput(renderer, gs, wrapped, boxTop, w, orange, dim)
+	t.drawInput(renderer, gs, wrapped, boxTop, boxRows, w, orange, dim)
 	t.drawHint(renderer, gs, hintRow, w, dim, faint)
 
 	renderer.Show()
@@ -204,7 +216,7 @@ func (t *ClaudeTheme) drawBox(renderer domain.Renderer, top, bottom, w int, styl
 	}
 }
 
-func (t *ClaudeTheme) drawInput(renderer domain.Renderer, gs *domain.GameState, wrapped []string, boxTop, w int, orange, dim tcell.Style) {
+func (t *ClaudeTheme) drawInput(renderer domain.Renderer, gs *domain.GameState, wrapped []string, boxTop, boxRows, w int, orange, dim tcell.Style) {
 	firstLine := boxTop + 1
 	if !gs.IsFinished {
 		renderer.DrawText(2, firstLine, orange, ">")
@@ -214,14 +226,20 @@ func (t *ClaudeTheme) drawInput(renderer domain.Renderer, gs *domain.GameState, 
 			Width:       w - 1,
 			PrefixWidth: claudePromptWidth,
 			CenterText:  false,
+			MaxLines:    boxRows,
 		})
 		return
 	}
-	// Finished: show the sent message in green.
+	// Finished: show the sent message in green — the tail of it, when the
+	// message is taller than the box.
 	renderer.HideCursor()
 	renderer.DrawText(2, firstLine, dim, ">")
 	sent := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-	for i, line := range wrapped {
+	shown := wrapped
+	if len(shown) > boxRows {
+		shown = shown[len(shown)-boxRows:]
+	}
+	for i, line := range shown {
 		if firstLine+i >= 0 {
 			renderer.DrawText(4, firstLine+i, sent, strings.TrimRight(line, " "))
 		}

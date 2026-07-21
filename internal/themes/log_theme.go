@@ -119,12 +119,20 @@ func (t *LogTheme) drawTypingLine(renderer domain.Renderer, gs *domain.GameState
 
 	prefixWidth := runewidth.StringWidth(logState.logPrefix)
 
+	// The typing line sits near the bottom, so long targets (the words
+	// stream) scroll within the rows that remain below it.
+	_, h := renderer.Size()
+	maxLines := h - targetY
+	if maxLines < 1 {
+		maxLines = 1
+	}
 	tr := &ui.TypingRenderer{}
 	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      targetY,
 		Width:       w - 1, // full width minus the left margin of 1 (PrefixWidth is handled internally)
 		PrefixWidth: prefixWidth,
 		CenterText:  false,
+		MaxLines:    maxLines,
 	})
 }
 
