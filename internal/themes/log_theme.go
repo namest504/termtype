@@ -143,7 +143,7 @@ func (t *LogTheme) drawResultLine(renderer domain.Renderer, gs *domain.GameState
 	resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.Wpm, gs.Accuracy)
 	renderer.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
 
-	guideText := "Press Enter to continue or ESC to exit."
+	guideText := "Press Enter for the next round, Esc for the menu."
 	renderer.DrawText(1, targetY+3, tcell.StyleDefault, guideText)
 }
 

@@ -252,9 +252,9 @@ func (t *ClaudeTheme) drawHint(renderer domain.Renderer, gs *domain.GameState, h
 	}
 	gl := ui.Glyphs()
 	if gs.IsFinished {
-		result := ui.ResultText(gs) + fmt.Sprintf("   %s Enter for a new message %s esc quit", gl.Send, gl.Sep)
+		result := ui.ResultText(gs) + fmt.Sprintf("   %s Enter for a new message %s esc menu", gl.Send, gl.Sep)
 		renderer.DrawText(0, hintRow, dim, ui.Truncate(result, w))
 		return
 	}
-	renderer.DrawText(0, hintRow, faint, ui.Truncate(gl.Send+" send when complete    esc quit", w))
+	renderer.DrawText(0, hintRow, faint, ui.Truncate(gl.Send+" send when complete    esc menu", w))
 }
