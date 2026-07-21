@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/namest504/termtype/internal/domain"
 	"github.com/namest504/termtype/internal/ui"
 )
@@ -136,7 +137,11 @@ func (t *MatrixTheme) drawResultArea(renderer domain.Renderer, gs *domain.GameSt
 
 	renderer.HideCursor()
 	resultText := ui.ResultText(gs)
-	renderer.DrawText((w-len(resultText))/2, startY+rows+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+	x := (w - runewidth.StringWidth(resultText)) / 2
+	if x < 0 {
+		x = 0
+	}
+	renderer.DrawText(x, startY+rows+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 }
 
 func (t *MatrixTheme) OnTick(gs *domain.GameState) {

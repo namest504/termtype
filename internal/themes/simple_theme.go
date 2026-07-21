@@ -55,7 +55,7 @@ func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.Game
 	renderer.HideCursor()
 	defStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	resultText1 := ui.ResultText(gs)
-	resultText2 := "Press Enter to continue or ESC to exit."
+	resultText2 := "Press Enter for the next round, Esc for the menu."
 	renderer.DrawText(1, startY, defStyle, resultText1)
 	renderer.DrawText(1, startY+2, defStyle, resultText2)
 }
