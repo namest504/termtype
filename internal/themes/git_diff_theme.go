@@ -42,7 +42,7 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 		return
 	}
 	renderer.Clear()
-	w, _ := renderer.Size()
+	w, h := renderer.Size()
 
 	// Draw context lines
 	renderer.DrawText(0, 0, tcell.StyleDefault.Foreground(tcell.ColorDimGray), "diff --git a/main.go b/main.go")
@@ -53,7 +53,7 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 	y := 4
 	for i, line := range state.ContextLines {
 		if i == 2 { // where the sentence goes (may span several wrapped rows)
-			y = t.drawTarget(renderer, gs, y, w)
+			y = t.drawTarget(renderer, gs, y, w, h)
 		} else {
 			renderer.DrawText(0, y, tcell.StyleDefault, " "+line)
 			y++
@@ -69,10 +69,11 @@ func (t *DiffTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState)
 }
 
 // drawTarget renders the target as one or more "+ " diff lines, wrapping to the
-// terminal width and coloring each typed rune. It returns the next free row and
-// positions the cursor (unless the round is finished). Glyph placement advances
-// by display width so wide runes (e.g. Hangul) align with the cursor.
-func (t *DiffTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, startY, w int) int {
+// terminal width and coloring each typed rune. Long targets (the words stream)
+// scroll inside a window that follows the cursor. It returns the next free row
+// and positions the cursor (unless the round is finished). Glyph placement
+// advances by display width so wide runes (e.g. Hangul) align with the cursor.
+func (t *DiffTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, startY, w, h int) int {
 	green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	red := tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorDarkRed)
 
@@ -81,9 +82,28 @@ func (t *DiffTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, s
 	if wrapWidth < 1 {
 		wrapWidth = 1
 	}
-	lines := ui.WrapText(gs.TargetSentence, wrapWidth)
+	allLines := ui.WrapText(gs.TargetSentence, wrapWidth)
+
+	// Window the "+" hunk so it never runs off the screen.
+	visible := h - startY - 4 // leave room for the trailing context and result
+	if visible > 8 {
+		visible = 8
+	}
+	if visible < 1 {
+		visible = 1
+	}
+	winStart := 0
+	lines := allLines
+	if len(allLines) > visible {
+		winStart = ui.WindowStart(len(allLines), ui.LineOfRune(allLines, len(inputRunes)), visible)
+		lines = allLines[winStart : winStart+visible]
+	}
 
 	offset := 0
+	for i := 0; i < winStart; i++ {
+		offset += len([]rune(allLines[i]))
+	}
+
 	cursorX, cursorY := 2, startY
 	foundCursor := false
 	y := startY
@@ -110,6 +130,8 @@ func (t *DiffTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, s
 		y++
 	}
 	if !foundCursor && len(lines) > 0 {
+		// The cursor sits past the window's last rune (end of the target,
+		// or the input has consumed the whole visible window).
 		last := []rune(lines[len(lines)-1])
 		cursorX = 2 + runewidth.StringWidth(string(last))
 		cursorY = startY + len(lines) - 1

@@ -57,9 +57,9 @@ func (t *MatrixTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 	startY := h/2 - 2
 
 	if !gs.IsFinished {
-		t.drawTypingArea(renderer, gs, w, startY)
+		t.drawTypingArea(renderer, gs, w, h, startY)
 	} else {
-		t.drawResultArea(renderer, gs, w, startY)
+		t.drawResultArea(renderer, gs, w, h, startY)
 	}
 
 	renderer.Show()
@@ -103,23 +103,40 @@ func (t *MatrixTheme) drawRaindrops(renderer domain.Renderer, matrixState *Matri
 	}
 }
 
-func (t *MatrixTheme) drawTypingArea(renderer domain.Renderer, gs *domain.GameState, w, startY int) {
+// matrixMaxLines bounds the typing window so long targets (the words
+// stream) scroll instead of running off the bottom of the screen.
+func matrixMaxLines(h, startY int) int {
+	maxLines := h - startY - 2
+	if maxLines > 7 {
+		maxLines = 7
+	}
+	if maxLines < 1 {
+		maxLines = 1
+	}
+	return maxLines
+}
+
+func (t *MatrixTheme) drawTypingArea(renderer domain.Renderer, gs *domain.GameState, w, h, startY int) {
 	tr := &ui.TypingRenderer{}
 	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      startY,
 		Width:       w - 4, // 2 cells of padding on each side
 		PrefixWidth: 0,
 		CenterText:  true,
+		MaxLines:    matrixMaxLines(h, startY),
 	})
 }
 
-func (t *MatrixTheme) drawResultArea(renderer domain.Renderer, gs *domain.GameState, w, startY int) {
-	// The wrapped text length is needed to compute the Y coordinate (recalculated).
-	wrappedTarget := ui.WrapText(gs.TargetSentence, w-4)
+func (t *MatrixTheme) drawResultArea(renderer domain.Renderer, gs *domain.GameState, w, h, startY int) {
+	// Recompute how many rows the typing window occupied.
+	rows := len(ui.WrapText(gs.TargetSentence, w-4))
+	if cap := matrixMaxLines(h, startY); rows > cap {
+		rows = cap
+	}
 
 	renderer.HideCursor()
 	resultText := ui.ResultText(gs)
-	renderer.DrawText((w-len(resultText))/2, startY+len(wrappedTarget)+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+	renderer.DrawText((w-len(resultText))/2, startY+rows+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
 }
 
 func (t *MatrixTheme) OnTick(gs *domain.GameState) {

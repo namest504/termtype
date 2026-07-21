@@ -6,6 +6,20 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+// WindowStart returns the first visible line of a visible-line-tall window
+// over total lines, keeping the cursor line near the middle row where
+// possible and pinning the window to the edges of the text.
+func WindowStart(total, cursor, visible int) int {
+	start := cursor - (visible-1)/2
+	if start > total-visible {
+		start = total - visible
+	}
+	if start < 0 {
+		start = 0
+	}
+	return start
+}
+
 // WrapText splits the given text into multiple lines fitting the specified width.
 func WrapText(text string, width int) []string {
 	var lines []string
