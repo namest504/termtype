@@ -125,13 +125,13 @@ func selectTheme(s tcell.Screen, events <-chan tcell.Event, cfg store.Config, st
 	for name := range themes.Themes {
 		themeNames = append(themeNames, name)
 	}
-	// log leads (the default), cozy sits right after it, the rest follow
+	// cozy leads (the default), log keeps second place, the rest follow
 	// alphabetically.
 	rank := func(name string) int {
 		switch name {
-		case "log":
-			return 0
 		case "cozy":
+			return 0
+		case "log":
 			return 1
 		}
 		return 2
