@@ -49,6 +49,13 @@ func (gs *GameState) RandomSentence() string {
 	if gs.TargetGen != nil {
 		return gs.TargetGen()
 	}
+	return gs.RandomPoolSentence()
+}
+
+// RandomPoolSentence always draws from the sentence pool, ignoring any
+// TargetGen — for decorative text (e.g. background log lines) that should
+// not turn into a words stream.
+func (gs *GameState) RandomPoolSentence() string {
 	pool := gs.Sentences
 	if len(pool) == 0 {
 		pool = Sentences

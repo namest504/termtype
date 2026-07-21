@@ -13,11 +13,16 @@ func init() {
 	Themes["hex"] = &HexTheme{}
 }
 
-// HexTheme mimics a hex editor UI.
+// HexTheme mimics a hex editor UI. The target is laid out in 16-byte rows
+// over a stable background dump; a few background bytes flip each tick, like
+// memory being written. Everything is byte-addressed — a hex dump of UTF-8 —
+// so wide runes (e.g. Hangul) occupy several cells and the cursor tracks the
+// byte offset.
 type HexTheme struct{}
 
 type HexThemeState struct {
 	StartLine int
+	rows      [][]byte // stable background dump, one 16-byte row per line
 }
 
 func (t *HexTheme) ResetState(gs *domain.GameState) {
@@ -36,33 +41,44 @@ func (t *HexTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) 
 
 	// Center the input area on screen (recomputed on every resize)
 	state.StartLine = h / 2
+	t.ensureDump(state, h)
 
-	t.drawHexDump(renderer, h)
-	t.drawInputOverlay(renderer, gs, state)
+	t.drawHexDump(renderer, state, h)
+	winStart := t.drawTarget(renderer, gs, state, h)
 
 	if gs.IsFinished {
 		t.drawResult(renderer, gs, h)
 	} else {
-		t.drawCursor(renderer, gs, state)
+		t.drawCursor(renderer, gs, state, winStart)
 	}
 
 	renderer.Show()
 }
 
-func (t *HexTheme) drawHexDump(renderer domain.Renderer, h int) {
+// ensureDump keeps a stable random dump at least h rows tall, so the
+// background doesn't reroll (and flicker) on every keystroke.
+func (t *HexTheme) ensureDump(state *HexThemeState, h int) {
+	for len(state.rows) < h {
+		row := make([]byte, 16)
+		for i := range row {
+			row[i] = byte(rand.Intn(256))
+		}
+		state.rows = append(state.rows, row)
+	}
+}
+
+func (t *HexTheme) drawHexDump(renderer domain.Renderer, state *HexThemeState, h int) {
 	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
 	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
 
-	// Draw random hex data across the whole screen
-	for y := 0; y < h; y++ {
+	for y := 0; y < h && y < len(state.rows); y++ {
 		offset := fmt.Sprintf("%08x", y*16)
 		hexStr, asciiStr := "", ""
-		for i := 0; i < 16; i++ {
-			randByte := byte(rand.Intn(256))
-			hexStr += fmt.Sprintf("%02x ", randByte)
-			if randByte >= 32 && randByte <= 126 {
-				asciiStr += string(randByte)
+		for _, b := range state.rows[y] {
+			hexStr += fmt.Sprintf("%02x ", b)
+			if b >= 32 && b <= 126 {
+				asciiStr += string(rune(b))
 			} else {
 				asciiStr += "."
 			}
@@ -73,22 +89,52 @@ func (t *HexTheme) drawHexDump(renderer domain.Renderer, h int) {
 	}
 }
 
-func (t *HexTheme) drawInputOverlay(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState) {
+// hexWindow returns the first visible 16-byte row of the target and how many
+// rows fit, keeping the row being typed on screen.
+func hexWindow(targetLen, inputLen, availRows int) (winStart, visible int) {
+	totalRows := (targetLen + 15) / 16
+	if totalRows < 1 {
+		totalRows = 1
+	}
+	visible = availRows
+	if visible < 1 {
+		visible = 1
+	}
+	if visible > totalRows {
+		visible = totalRows
+	}
+	cursorRow := inputLen / 16
+	if cursorRow > totalRows-1 {
+		cursorRow = totalRows - 1
+	}
+	return ui.WindowStart(totalRows, cursorRow, visible), visible
+}
+
+// drawTarget lays the target sentence over the dump in 16-byte rows,
+// coloring the ascii pane with the typed input. It returns the window start
+// row so the cursor can be placed.
+func (t *HexTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState, h int) int {
 	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)
 
-	// Display the target sentence in 16-byte rows
 	targetBytes := []byte(gs.TargetSentence)
+	inputBytes := []byte(gs.UserInput)
+	winStart, visible := hexWindow(len(targetBytes), len(inputBytes), h-state.StartLine-1)
+
 	for i, b := range targetBytes {
-		lineIdx := state.StartLine + (i / 16)
+		row := i/16 - winStart
+		if row < 0 || row >= visible {
+			continue
+		}
+		lineIdx := state.StartLine + row
 		charIdx := i % 16
 
 		hexStr := fmt.Sprintf("%02x", b)
 		asciiChar := "."
 		if b >= 32 && b <= 126 {
-			asciiChar = string(b)
+			asciiChar = string(rune(b))
 		}
 
 		renderer.SetContent(10+charIdx*3, lineIdx, []rune(hexStr)[0], hexStyle)
@@ -96,26 +142,31 @@ func (t *HexTheme) drawInputOverlay(renderer domain.Renderer, gs *domain.GameSta
 		renderer.SetContent(62+charIdx, lineIdx, []rune(asciiChar)[0], asciiStyle)
 	}
 
-	// User input feedback
-	inputBytes := []byte(gs.UserInput)
-	for i, r := range inputBytes {
-		lineIdx := state.StartLine + (i / 16)
-		charIdx := i % 16
+	// User input feedback in the ascii pane, byte for byte.
+	for i, b := range inputBytes {
+		if i >= len(targetBytes) {
+			break
+		}
+		row := i/16 - winStart
+		if row < 0 || row >= visible {
+			continue
+		}
 		style := correctStyle
-		if i < len(targetBytes) && r != targetBytes[i] { // compare target byte with rune
+		if b != targetBytes[i] {
 			style = incorrectStyle
 		}
-		if i < len(targetBytes) {
-			renderer.SetContent(62+charIdx, lineIdx, rune(targetBytes[i]), style)
-		}
+		renderer.SetContent(62+i%16, state.StartLine+row, rune(targetBytes[i]), style)
 	}
+	return winStart
 }
 
-func (t *HexTheme) drawCursor(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState) {
-	inputRunes := []rune(gs.UserInput)
-	cursorLine := state.StartLine + (len(inputRunes) / 16)
-	cursorCol := len(inputRunes) % 16
-	renderer.ShowCursor(62+cursorCol, cursorLine)
+func (t *HexTheme) drawCursor(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState, winStart int) {
+	byteIdx := len([]byte(gs.UserInput))
+	row := byteIdx/16 - winStart
+	if row < 0 {
+		row = 0
+	}
+	renderer.ShowCursor(62+byteIdx%16, state.StartLine+row)
 }
 
 func (t *HexTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, h int) {
@@ -124,4 +175,14 @@ func (t *HexTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, h 
 	renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
 }
 
-func (t *HexTheme) OnTick(gs *domain.GameState) {}
+// OnTick flips a few background bytes, like memory being written.
+func (t *HexTheme) OnTick(gs *domain.GameState) {
+	state, ok := gs.CustomState.(*HexThemeState)
+	if !ok || len(state.rows) == 0 {
+		return
+	}
+	for i := 0; i < 8; i++ {
+		row := state.rows[rand.Intn(len(state.rows))]
+		row[rand.Intn(len(row))] = byte(rand.Intn(256))
+	}
+}
