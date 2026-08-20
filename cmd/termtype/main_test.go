@@ -32,7 +32,9 @@ func TestChartOptionsFor(t *testing.T) {
 }
 
 func TestSummaryLine(t *testing.T) {
+	prev := ui.IsASCII()
 	ui.SetASCII(false)
+	t.Cleanup(func() { ui.SetASCII(prev) })
 	cases := []struct {
 		name string
 		cfg  store.Config

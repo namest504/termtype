@@ -34,14 +34,16 @@ func TestCarouselWraps(t *testing.T) {
 }
 
 func TestExpandSelectCollapse(t *testing.T) {
-	m := newMenuModel("cozy")
 	t.Run("down expands with selection on current theme", func(t *testing.T) {
+		m := newMenuModel("cozy")
 		m.handleKey(key(tcell.KeyDown))
 		if !m.expanded || m.sel != m.idx {
 			t.Errorf("expanded=%v sel=%d idx=%d, want expanded=true and sel==idx", m.expanded, m.sel, m.idx)
 		}
 	})
 	t.Run("enter picks the selection and collapses", func(t *testing.T) {
+		m := newMenuModel("cozy")
+		m.handleKey(key(tcell.KeyDown)) // expand
 		m.handleKey(key(tcell.KeyDown)) // move selection
 		m.handleKey(key(tcell.KeyEnter))
 		if m.expanded || m.idx != 1 {
@@ -51,14 +53,17 @@ func TestExpandSelectCollapse(t *testing.T) {
 }
 
 func TestExpandedEscCollapsesWithoutQuit(t *testing.T) {
-	m := newMenuModel("cozy")
-	m.handleKey(key(tcell.KeyDown))
 	t.Run("esc while expanded collapses without quitting", func(t *testing.T) {
+		m := newMenuModel("cozy")
+		m.handleKey(key(tcell.KeyDown)) // expand
 		if act := m.handleKey(key(tcell.KeyEscape)); act != actNone || m.expanded {
 			t.Errorf("act = %v, expanded = %v, want actNone and collapsed", act, m.expanded)
 		}
 	})
 	t.Run("esc while collapsed quits", func(t *testing.T) {
+		m := newMenuModel("cozy")
+		m.handleKey(key(tcell.KeyDown))   // expand
+		m.handleKey(key(tcell.KeyEscape)) // collapse
 		if act := m.handleKey(key(tcell.KeyEscape)); act != actQuit {
 			t.Errorf("act = %v, want actQuit", act)
 		}
