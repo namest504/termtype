@@ -140,6 +140,8 @@ func Render(series []float64, o Options) [][]Cell {
 	switch o.Style {
 	case StyleASCII:
 		renderASCII(grid, series, cols, o.Height)
+	case StyleBox:
+		renderBox(grid, series, cols, o, lo, hi)
 	default:
 		renderBraille(grid, series, cols, o, lo, hi)
 	}
@@ -194,6 +196,38 @@ func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi 
 				grid[cy][labelW+1+cx] = Cell{Rune: rune(0x2800 + mask), Kind: KindLine}
 			}
 		}
+	}
+}
+
+// renderBox draws a cell-resolution solid line with rounded corners:
+// ─ for level runs, ╮╰ going down, ╯╭ going up, │ filling steep drops.
+// lo, hi are the TRUE series bounds (matching the axis labels), NOT the
+// bounds of the downsampled array — see renderBraille for why.
+func renderBox(grid [][]Cell, series []float64, cols int, o Options, lo, hi float64) {
+	vals := sample(series, cols, o.Interp)
+	rows := pixelRows(vals, o.Height, lo, hi)
+	put := func(y, c int, r rune) {
+		grid[y][labelW+1+c] = Cell{Rune: r, Kind: KindLine}
+	}
+	prev := rows[0]
+	for c, row := range rows {
+		switch {
+		case c == 0 || row == prev:
+			put(row, c, '─')
+		case row < prev: // going up
+			put(prev, c, '╯')
+			put(row, c, '╭')
+			for r := row + 1; r < prev; r++ {
+				put(r, c, '│')
+			}
+		default: // going down
+			put(prev, c, '╮')
+			put(row, c, '╰')
+			for r := prev + 1; r < row; r++ {
+				put(r, c, '│')
+			}
+		}
+		prev = row
 	}
 }
 

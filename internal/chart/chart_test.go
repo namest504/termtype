@@ -220,3 +220,35 @@ func TestThicknessZeroMeansOne(t *testing.T) {
 		t.Fatal("thickness 0 should behave as 1")
 	}
 }
+
+func TestBoxStyleCorners(t *testing.T) {
+	// 3-sample V shape: down then up → expect ╮ ╰ on the way down, ╯ ╭ up
+	g := Render([]float64{100, 0, 100}, Options{Width: 20, Height: 5, Style: StyleBox})
+	counts := map[rune]int{}
+	for _, row := range g {
+		for _, c := range row {
+			if c.Kind == KindLine {
+				counts[c.Rune]++
+			}
+		}
+	}
+	for _, r := range []rune{'╮', '╰', '╯', '╭'} {
+		if counts[r] == 0 {
+			t.Fatalf("box line missing corner %q; got %v", r, counts)
+		}
+	}
+	if counts['─'] == 0 {
+		t.Fatalf("box line missing horizontal runs; got %v", counts)
+	}
+}
+
+func TestBoxStyleFlat(t *testing.T) {
+	g := Render([]float64{50, 50, 50}, Options{Width: 20, Height: 5, Style: StyleBox})
+	for y, row := range g {
+		for _, c := range row {
+			if c.Kind == KindLine && (c.Rune != '─' || y != 2) {
+				t.Fatalf("flat box line should be ─ on middle row, got %q on row %d", c.Rune, y)
+			}
+		}
+	}
+}
