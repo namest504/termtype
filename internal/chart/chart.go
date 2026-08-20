@@ -67,9 +67,11 @@ var brailleBits = [4][2]int{{0x01, 0x08}, {0x02, 0x10}, {0x04, 0x20}, {0x40, 0x8
 const labelW = 4
 
 // sample maps series onto n points. InterpLinear draws straight segments
-// between samples; InterpSmooth is added with the style work (PR-2) and
-// falls back to linear until then.
+// between samples; InterpSmooth uses monotone cubic interpolation.
 func sample(series []float64, n int, ip Interp) []float64 {
+	if ip == InterpSmooth && len(series) >= 3 {
+		return monotoneCubic(series, n)
+	}
 	out := make([]float64, n)
 	for c := 0; c < n; c++ {
 		pos := float64(c) * float64(len(series)-1) / float64(n-1)
