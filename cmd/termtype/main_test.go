@@ -10,21 +10,24 @@ import (
 
 func TestChartOptionsFor(t *testing.T) {
 	cases := []struct {
+		name  string
 		code  string
 		style chart.Style
 		thick int
 	}{
-		{"braille1", chart.StyleBraille, 1},
-		{"braille2", chart.StyleBraille, 2},
-		{"braille3", chart.StyleBraille, 3},
-		{"box", chart.StyleBox, 1},
-		{"unknown", chart.StyleBraille, 2}, // 알 수 없는 값은 기본값
+		{"braille1 is thin", "braille1", chart.StyleBraille, 1},
+		{"braille2 is medium", "braille2", chart.StyleBraille, 2},
+		{"braille3 is thick", "braille3", chart.StyleBraille, 3},
+		{"box style", "box", chart.StyleBox, 1},
+		{"unknown code falls back to braille2", "unknown", chart.StyleBraille, 2},
 	}
-	for _, c := range cases {
-		o := chartOptionsFor(c.code)
-		if o.Style != c.style || o.Thickness != c.thick || o.Interp != chart.InterpSmooth {
-			t.Fatalf("%s → %+v", c.code, o)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			o := chartOptionsFor(tc.code)
+			if o.Style != tc.style || o.Thickness != tc.thick || o.Interp != chart.InterpSmooth {
+				t.Errorf("chartOptionsFor(%q) = %+v, want style %v thickness %d", tc.code, o, tc.style, tc.thick)
+			}
+		})
 	}
 }
 
