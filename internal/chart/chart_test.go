@@ -178,3 +178,45 @@ func TestRenderBrailleScalesAgainstTrueSeriesBounds(t *testing.T) {
 			topRow, expectedCellRow)
 	}
 }
+
+func brailleDotCount(g [][]Cell) int {
+	n := 0
+	for _, row := range g {
+		for _, c := range row {
+			if c.Rune >= 0x2800 && c.Rune <= 0x28FF {
+				for mask := int(c.Rune - 0x2800); mask != 0; mask &= mask - 1 {
+					n++
+				}
+			}
+		}
+	}
+	return n
+}
+
+func TestThicknessAddsPixels(t *testing.T) {
+	series := []float64{0, 30, 60, 100}
+	thin := Render(series, Options{Width: 30, Height: 6, Thickness: 1})
+	thick := Render(series, Options{Width: 30, Height: 6, Thickness: 2})
+	if brailleDotCount(thick) <= brailleDotCount(thin) {
+		t.Fatalf("thickness 2 (%d dots) should light more pixels than 1 (%d)",
+			brailleDotCount(thick), brailleDotCount(thin))
+	}
+}
+
+func TestThicknessClampsAtBottom(t *testing.T) {
+	// a series hugging the minimum: thick pixels must not run past the grid
+	g := Render([]float64{0, 0, 100}, Options{Width: 20, Height: 3, Thickness: 3})
+	if g == nil {
+		t.Fatal("render returned nil")
+	}
+	// reaching here without an index-out-of-range panic is the real assertion
+}
+
+func TestThicknessZeroMeansOne(t *testing.T) {
+	series := []float64{0, 50, 100}
+	zero := Render(series, Options{Width: 30, Height: 6, Thickness: 0})
+	one := Render(series, Options{Width: 30, Height: 6, Thickness: 1})
+	if brailleDotCount(zero) != brailleDotCount(one) {
+		t.Fatal("thickness 0 should behave as 1")
+	}
+}

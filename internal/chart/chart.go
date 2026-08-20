@@ -153,10 +153,23 @@ func Render(series []float64, o Options) [][]Cell {
 // smoothed away, so scaling against the sample's own bounds would diverge
 // from what the axis reports.
 func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi float64) {
-	pxRows := pixelRows(sample(series, cols*2, o.Interp), o.Height*4, lo, hi)
+	thick := o.Thickness
+	if thick < 1 {
+		thick = 1
+	}
+	if thick > 3 {
+		thick = 3
+	}
+	pxTotal := o.Height * 4
+	pxRows := pixelRows(sample(series, cols*2, o.Interp), pxTotal, lo, hi)
 	masks := make([][]int, o.Height)
 	for i := range masks {
 		masks[i] = make([]int, cols)
+	}
+	set := func(py, c int) {
+		if py >= 0 && py < pxTotal {
+			masks[py/4][c/2] |= brailleBits[py%4][c%2]
+		}
 	}
 	prev := pxRows[0]
 	for c, row := range pxRows {
@@ -169,7 +182,9 @@ func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi 
 			}
 		}
 		for py := lo; py <= hi; py++ {
-			masks[py/4][c/2] |= brailleBits[py%4][c%2]
+			for t := 0; t < thick; t++ {
+				set(py+t, c)
+			}
 		}
 		prev = row
 	}
