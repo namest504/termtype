@@ -83,10 +83,12 @@ func sample(series []float64, n int, ip Interp) []float64 {
 	return out
 }
 
-// pixelRows maps sampled values onto pixel rows; row 0 is the top (max).
-// A flat series sits on the middle row.
-func pixelRows(values []float64, pxRows int) []int {
-	lo, hi := bounds(values)
+// pixelRows maps sampled values onto pixel rows using the given lo/hi
+// bounds (the TRUE series bounds, not the sampled array's own bounds — the
+// caller must scale consistently with whatever bounds the axis labels
+// use). Row 0 is the top (max). A flat series (hi == lo) sits on the
+// middle row.
+func pixelRows(values []float64, pxRows int, lo, hi float64) []int {
 	out := make([]int, len(values))
 	for i, v := range values {
 		if hi == lo {
@@ -137,15 +139,19 @@ func Render(series []float64, o Options) [][]Cell {
 	case StyleASCII:
 		renderASCII(grid, series, cols, o.Height)
 	default:
-		renderBraille(grid, series, cols, o)
+		renderBraille(grid, series, cols, o, lo, hi)
 	}
 	return grid
 }
 
 // renderBraille plots into a 2×4-per-cell pixel grid, joining neighbor
-// pixel columns vertically so steep segments stay connected.
-func renderBraille(grid [][]Cell, series []float64, cols int, o Options) {
-	pxRows := pixelRows(sample(series, cols*2, o.Interp), o.Height*4)
+// pixel columns vertically so steep segments stay connected. lo, hi are
+// the TRUE series bounds (matching the axis labels), NOT the bounds of the
+// downsampled array — a narrow peak can fall between sample points and be
+// smoothed away, so scaling against the sample's own bounds would diverge
+// from what the axis reports.
+func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi float64) {
+	pxRows := pixelRows(sample(series, cols*2, o.Interp), o.Height*4, lo, hi)
 	masks := make([][]int, o.Height)
 	for i := range masks {
 		masks[i] = make([]int, cols)

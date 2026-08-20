@@ -2,10 +2,6 @@ package chart
 
 import "testing"
 
-func braille2(o Options, series []float64) [][]Cell {
-	return Render(series, o)
-}
-
 func TestRenderNilOnDegenerate(t *testing.T) {
 	o := Options{Width: 20, Height: 5}
 	if Render([]float64{42}, o) != nil {
@@ -116,10 +112,69 @@ func TestSampleLinearInterpolates(t *testing.T) {
 }
 
 func TestPixelRowsFlat(t *testing.T) {
-	rows := pixelRows([]float64{5, 5, 5, 5}, 8)
+	rows := pixelRows([]float64{5, 5, 5, 5}, 8, 5, 5)
 	for _, r := range rows {
 		if r != 4 {
 			t.Fatalf("flat series pixel row = %d, want 4", r)
 		}
+	}
+}
+
+// TestRenderBrailleScalesAgainstTrueSeriesBounds is a regression test for a
+// bug where the braille line was scaled against the bounds of the
+// downsampled array (sample(series, cols*2, ...)) instead of the true
+// series bounds used by the axis labels. When cols*2 < len(series), a
+// narrow peak can be smoothed away by interpolation before scaling, so the
+// sampled max is well below the true max — the line then reports as
+// touching the axis top even though it is nowhere near the labeled max.
+//
+// series has a single spike (100) at index 3 out of 17 points, everything
+// else 0. With Width=9 the plot area is 4 cols, so cols*2 = 8 sample
+// points — well under 17, so the spike lands between two sample points and
+// is interpolated down to ~28.6 instead of surviving as 100.
+func TestRenderBrailleScalesAgainstTrueSeriesBounds(t *testing.T) {
+	series := make([]float64, 17)
+	series[3] = 100
+
+	o := Options{Width: 9, Height: 10}
+	cols := o.Width - labelW - 1
+	if cols*2 >= len(series) {
+		t.Fatalf("test setup invalid: cols*2=%d must be < len(series)=%d", cols*2, len(series))
+	}
+
+	// Expected top pixel row, computed against the TRUE series bounds
+	// (what the axis labels use), not the sampled array's own bounds.
+	lo, hi := bounds(series)
+	values := sample(series, cols*2, InterpLinear)
+	peak := values[0]
+	for _, v := range values {
+		if v > peak {
+			peak = v
+		}
+	}
+	pxRows := o.Height * 4
+	expectedPixelRow := int((hi - peak) / (hi - lo) * float64(pxRows-1))
+	expectedCellRow := expectedPixelRow / 4
+
+	g := Render(series, o)
+	topRow := -1
+	for row := range g {
+		for _, c := range g[row] {
+			if c.Kind == KindLine {
+				topRow = row
+				break
+			}
+		}
+		if topRow != -1 {
+			break
+		}
+	}
+	if topRow == -1 {
+		t.Fatal("no line cells rendered")
+	}
+	if topRow != expectedCellRow {
+		t.Fatalf("topmost line cell row = %d, want %d (scaled against true series bounds; "+
+			"got row 0 would indicate the bug — scaling against the sampled array's own bounds)",
+			topRow, expectedCellRow)
 	}
 }
