@@ -58,23 +58,35 @@ func TestLoadHistorySkipsCorruptLines(t *testing.T) {
 
 func TestNoopStore(t *testing.T) {
 	var nilStore *Store
-	for name, s := range map[string]*Store{"nil": nilStore, "empty": {}} {
-		s.SaveConfig(Config{Theme: "x"})
-		s.AppendRound(Round{TS: time.Now()})
-		if got := s.LoadHistory(); got != nil {
-			t.Errorf("%s store LoadHistory() = %v, want nil", name, got)
-		}
-		if got := s.LoadConfig(); got != (Config{}) {
-			t.Errorf("%s store LoadConfig() = %+v, want zero value", name, got)
-		}
+	cases := map[string]*Store{"nil": nilStore, "empty": {}}
+	for name, s := range cases {
+		t.Run(name, func(t *testing.T) {
+			s.SaveConfig(Config{Theme: "x"})
+			s.AppendRound(Round{TS: time.Now()})
+			if got := s.LoadHistory(); got != nil {
+				t.Errorf("LoadHistory() = %v, want nil", got)
+			}
+			if got := s.LoadConfig(); got != (Config{}) {
+				t.Errorf("LoadConfig() = %+v, want zero value", got)
+			}
+		})
 	}
 }
 
 func TestChartStyleDefault(t *testing.T) {
-	if got := (Config{}).ChartStyle(); got != "braille2" {
-		t.Fatalf("empty style should default to braille2, got %q", got)
+	cases := []struct {
+		name  string
+		style string
+		want  string
+	}{
+		{"empty defaults to braille2", "", "braille2"},
+		{"explicit style passes through", "box", "box"},
 	}
-	if got := (Config{Style: "box"}).ChartStyle(); got != "box" {
-		t.Fatalf("explicit style should pass through, got %q", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := (Config{Style: tc.style}).ChartStyle(); got != tc.want {
+				t.Errorf("ChartStyle() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

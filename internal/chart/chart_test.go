@@ -3,15 +3,21 @@ package chart
 import "testing"
 
 func TestRenderNilOnDegenerate(t *testing.T) {
-	o := Options{Width: 20, Height: 5}
-	if Render([]float64{42}, o) != nil {
-		t.Fatal("single sample should render nil")
+	cases := []struct {
+		name   string
+		series []float64
+		opts   Options
+	}{
+		{"single sample", []float64{42}, Options{Width: 20, Height: 5}},
+		{"too-narrow rect", []float64{1, 2}, Options{Width: 6, Height: 5}},
+		{"too-short rect", []float64{1, 2}, Options{Width: 20, Height: 1}},
 	}
-	if Render([]float64{1, 2}, Options{Width: 6, Height: 5}) != nil {
-		t.Fatal("too-narrow rect should render nil")
-	}
-	if Render([]float64{1, 2}, Options{Width: 20, Height: 1}) != nil {
-		t.Fatal("too-short rect should render nil")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := Render(tc.series, tc.opts); got != nil {
+				t.Errorf("Render() = %v, want nil", got)
+			}
+		})
 	}
 }
 
@@ -29,7 +35,7 @@ func TestRenderAxisAndLabels(t *testing.T) {
 	const labelW = 4
 	for row := 0; row < 5; row++ {
 		if g[row][labelW].Kind != KindAxis || g[row][labelW].Rune != '┤' {
-			t.Fatalf("row %d col %d should be axis tick, got %q/%v",
+			t.Errorf("row %d col %d = %q/%v, want '┤'/KindAxis",
 				row, labelW, g[row][labelW].Rune, g[row][labelW].Kind)
 		}
 	}
@@ -51,7 +57,7 @@ func TestRenderLineCellsTagged(t *testing.T) {
 		for cx, c := range row {
 			if c.Kind == KindLine {
 				if cx <= 4 {
-					t.Fatalf("line cell inside axis area at col %d", cx)
+					t.Errorf("line cell inside axis area at col %d", cx)
 				}
 				found = true
 			}
@@ -74,7 +80,7 @@ func TestRenderFlatSeriesMidRow(t *testing.T) {
 		}
 		// flat series → all line pixels land in the middle pixel row band
 		if hasLine && row != 2 {
-			t.Fatalf("flat series drew on cell row %d, want only row 2", row)
+			t.Errorf("flat series drew on cell row %d, want only row 2", row)
 		}
 	}
 }
@@ -89,7 +95,7 @@ func TestRenderASCIIStyle(t *testing.T) {
 				stars++
 			}
 			if c.Rune >= 0x2800 && c.Rune <= 0x28FF {
-				t.Fatal("ASCII style must not emit braille runes")
+				t.Errorf("ASCII style must not emit braille runes, got %q", c.Rune)
 			}
 		}
 	}
@@ -97,7 +103,7 @@ func TestRenderASCIIStyle(t *testing.T) {
 		t.Fatal("ASCII style should draw * markers")
 	}
 	if g[0][4].Rune != '|' {
-		t.Fatalf("ASCII tick should be '|', got %q", g[0][4].Rune)
+		t.Fatalf("ASCII tick = %q, want '|'", g[0][4].Rune)
 	}
 }
 
@@ -106,7 +112,7 @@ func TestSampleLinearInterpolates(t *testing.T) {
 	want := []float64{0, 5, 10}
 	for i := range want {
 		if got[i] != want[i] {
-			t.Fatalf("sample[%d] = %v, want %v", i, got[i], want[i])
+			t.Errorf("sample[%d] = %v, want %v", i, got[i], want[i])
 		}
 	}
 }
@@ -115,7 +121,7 @@ func TestPixelRowsFlat(t *testing.T) {
 	rows := pixelRows([]float64{5, 5, 5, 5}, 8, 5, 5)
 	for _, r := range rows {
 		if r != 4 {
-			t.Fatalf("flat series pixel row = %d, want 4", r)
+			t.Errorf("flat series pixel row = %d, want 4", r)
 		}
 	}
 }
@@ -234,11 +240,11 @@ func TestBoxStyleCorners(t *testing.T) {
 	}
 	for _, r := range []rune{'╮', '╰', '╯', '╭'} {
 		if counts[r] == 0 {
-			t.Fatalf("box line missing corner %q; got %v", r, counts)
+			t.Errorf("box line missing corner %q; got %v", r, counts)
 		}
 	}
 	if counts['─'] == 0 {
-		t.Fatalf("box line missing horizontal runs; got %v", counts)
+		t.Errorf("box line missing horizontal runs; got %v", counts)
 	}
 }
 
@@ -247,7 +253,7 @@ func TestBoxStyleFlat(t *testing.T) {
 	for y, row := range g {
 		for _, c := range row {
 			if c.Kind == KindLine && (c.Rune != '─' || y != 2) {
-				t.Fatalf("flat box line should be ─ on middle row, got %q on row %d", c.Rune, y)
+				t.Errorf("flat box line cell = %q on row %d, want '─' on row 2", c.Rune, y)
 			}
 		}
 	}
