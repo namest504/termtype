@@ -46,3 +46,24 @@ func TestSampleSmoothFallsBackBelowThree(t *testing.T) {
 		}
 	}
 }
+
+func TestMonotoneCubicLocalExtrema(t *testing.T) {
+	cases := []struct {
+		name   string
+		series []float64
+	}{
+		{"valley", []float64{80, 20, 80}},
+		{"peak", []float64{20, 80, 20}},
+		{"zigzag", []float64{10, 60, 30, 70, 40}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			lo, hi := bounds(tc.series)
+			for i, v := range monotoneCubic(tc.series, 101) {
+				if v < lo-1e-9 || v > hi+1e-9 {
+					t.Fatalf("point %d overshoots at a direction change: %v outside [%v,%v]", i, v, lo, hi)
+				}
+			}
+		})
+	}
+}
