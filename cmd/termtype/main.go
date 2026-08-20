@@ -102,16 +102,7 @@ func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 // chartOptionsFor maps a config style code onto chart options. Unknown
 // codes fall back to the default so an edited config never breaks startup.
 func chartOptionsFor(code string) chart.Options {
-	o := chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 2}
-	switch code {
-	case "braille1":
-		o.Thickness = 1
-	case "braille3":
-		o.Thickness = 3
-	case "box":
-		o.Style, o.Thickness = chart.StyleBox, 1
-	}
-	return o
+	return chartStyles[styleIdxFor(code)].opts
 }
 
 // selection is everything the menu picks: the theme (and its registry name,

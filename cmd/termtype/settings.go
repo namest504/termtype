@@ -4,18 +4,31 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/namest504/termtype/internal/chart"
 	"github.com/namest504/termtype/internal/store"
 	"github.com/namest504/termtype/internal/ui"
 )
 
-// chartStyles are the result-graph styles the settings screen cycles
-// through; codes are what config.json stores (see Config.ChartStyle).
-var chartStyles = []struct{ code, label string }{
-	{"braille1", "braille · 1px"},
-	{"braille2", "braille · 2px"},
-	{"braille3", "braille · 3px"},
-	{"box", "box"},
+// chartStyles is the single source of truth for the result-graph styles:
+// codes are what config.json stores (see Config.ChartStyle), and opts is
+// the chart.Options each code renders with. Both the settings screen and
+// chartOptionsFor derive from this table so they can never disagree on
+// what an unknown/legacy code falls back to.
+var chartStyles = []struct {
+	code, label string
+	opts        chart.Options
+}{
+	{"braille1", "braille · 1px", chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 1}},
+	{"braille2", "braille · 2px", chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 2}},
+	{"braille3", "braille · 3px", chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 3}},
+	{"box", "box", chart.Options{Style: chart.StyleBox, Interp: chart.InterpSmooth, Thickness: 1}},
 }
+
+// defaultChartStyleIdx is the table index for store.Config{}.ChartStyle()
+// (currently "braille2"), used as the fallback when a code isn't found.
+var defaultChartStyleIdx = indexOf(len(chartStyles), func(i int) bool {
+	return chartStyles[i].code == store.Config{}.ChartStyle()
+})
 
 const settingsRows = 5 // Mode, Text, Language, Graph, Style
 
@@ -30,12 +43,24 @@ type settingsModel struct {
 	graphOn  bool
 }
 
+// styleIdxFor finds a style code's index in chartStyles, falling back to
+// the braille2 entry when the code is unknown (e.g. a stale/hand-edited
+// config) so the settings screen shows the same style chartOptionsFor
+// renders.
+func styleIdxFor(code string) int {
+	idx := indexOf(len(chartStyles), func(i int) bool { return chartStyles[i].code == code })
+	if chartStyles[idx].code != code {
+		return defaultChartStyleIdx
+	}
+	return idx
+}
+
 func newSettingsModel(cfg store.Config) settingsModel {
 	return settingsModel{
 		modeIdx:  indexOf(len(gameModes), func(i int) bool { return store.ModeString(gameModes[i].limit) == cfg.Mode }),
 		srcIdx:   indexOf(len(textSources), func(i int) bool { return textSources[i].code == cfg.Source }),
 		langIdx:  indexOf(len(languages), func(i int) bool { return languages[i].code == cfg.Lang }),
-		styleIdx: indexOf(len(chartStyles), func(i int) bool { return chartStyles[i].code == cfg.ChartStyle() }),
+		styleIdx: styleIdxFor(cfg.ChartStyle()),
 		graphOn:  cfg.GraphAuto(),
 	}
 }
@@ -128,8 +153,9 @@ func runSettings(s tcell.Screen, events <-chan tcell.Event, cfg *store.Config, s
 
 func drawSettings(s tcell.Screen, m settingsModel) {
 	s.Clear()
+	w, _ := s.Size()
 	gl := ui.Glyphs()
-	drawText(s, 2, 1, tcell.StyleDefault.Bold(true), "Settings")
+	drawText(s, 2, 1, tcell.StyleDefault.Bold(true), ui.Truncate("Settings", w-2))
 
 	langName := languages[m.langIdx].name
 	langPinned := textSources[m.srcIdx].code == "words"
@@ -166,9 +192,9 @@ func drawSettings(s tcell.Screen, m settingsModel) {
 		if ui.IsASCII() {
 			line = fmt.Sprintf("%-10s < %s >", row.name, row.value)
 		}
-		drawText(s, 3, 3+i, st, line)
+		drawText(s, 3, 3+i, st, ui.Truncate(line, w-3))
 	}
 	help := gl.ArrowUD + " select " + gl.Sep + " " + gl.ArrowLR + " change " + gl.Sep + " Esc back"
-	drawText(s, 2, 3+settingsRows+1, tcell.StyleDefault.Foreground(tcell.ColorGray), help)
+	drawText(s, 2, 3+settingsRows+1, tcell.StyleDefault.Foreground(tcell.ColorGray), ui.Truncate(help, w-2))
 	s.Show()
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/namest504/termtype/internal/chart"
 	"github.com/namest504/termtype/internal/store"
 )
 
@@ -50,6 +51,33 @@ func TestSettingsFreshConfigDefaultsToBraille2(t *testing.T) {
 	cfg := m.apply(store.Config{})
 	if cfg.Style != "braille2" {
 		t.Fatalf("changing unrelated row should preserve braille2, got %s", cfg.Style)
+	}
+}
+
+// TestUnknownStyleFallsBackToBraille2Consistently guards against
+// chartOptionsFor and newSettingsModel disagreeing on the fallback for an
+// unknown/legacy style code: both must treat it as braille2, and an
+// unrelated settings change must persist "braille2" rather than
+// silently rewriting it to "braille1" (index-0 fallback).
+func TestUnknownStyleFallsBackToBraille2Consistently(t *testing.T) {
+	const unknown = "braille4"
+
+	o := chartOptionsFor(unknown)
+	want := chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 2}
+	if o != want {
+		t.Fatalf("chartOptionsFor(%q) = %+v, want %+v", unknown, o, want)
+	}
+
+	m := newSettingsModel(store.Config{Style: unknown})
+	if chartStyles[m.styleIdx].code != "braille2" {
+		t.Fatalf("newSettingsModel(%q) showed %s, want braille2", unknown, chartStyles[m.styleIdx].code)
+	}
+
+	m.row = 0 // Mode: unrelated to Style
+	m.handleKey(key(tcell.KeyRight))
+	cfg := m.apply(store.Config{Style: unknown})
+	if cfg.Style != "braille2" {
+		t.Fatalf("unrelated change rewrote style to %q, want braille2", cfg.Style)
 	}
 }
 

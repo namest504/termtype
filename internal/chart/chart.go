@@ -175,15 +175,15 @@ func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi 
 	}
 	prev := pxRows[0]
 	for c, row := range pxRows {
-		lo, hi := row, row
+		top, bot := row, row
 		if c > 0 {
 			if prev < row {
-				lo = prev + 1
+				top = prev + 1
 			} else if prev > row {
-				hi = prev - 1
+				bot = prev - 1
 			}
 		}
-		for py := lo; py <= hi; py++ {
+		for py := top; py <= bot; py++ {
 			for t := 0; t < thick; t++ {
 				set(py+t, c)
 			}
