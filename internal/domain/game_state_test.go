@@ -21,8 +21,8 @@ func TestFinalize_PartialAccuracy(t *testing.T) {
 	if gs.Accuracy != 75 {
 		t.Errorf("Accuracy = %.2f, want 75 (3 of 4 typed)", gs.Accuracy)
 	}
-	if gs.Wpm <= 0 {
-		t.Errorf("Wpm = %.2f, want > 0", gs.Wpm)
+	if gs.WPM <= 0 {
+		t.Errorf("WPM = %.2f, want > 0", gs.WPM)
 	}
 }
 

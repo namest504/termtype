@@ -10,8 +10,8 @@ func init() {
 	Themes["simple"] = &SimpleTheme{}
 }
 
-// --- Simple Theme --- //
-
+// SimpleTheme is the default plain typing view: the target text with live
+// progress coloring and no decoration.
 type SimpleTheme struct{}
 
 func (t *SimpleTheme) ResetState(gs *domain.GameState) {
