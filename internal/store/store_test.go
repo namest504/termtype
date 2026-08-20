@@ -69,3 +69,12 @@ func TestNoopStore(t *testing.T) {
 		}
 	}
 }
+
+func TestChartStyleDefault(t *testing.T) {
+	if got := (Config{}).ChartStyle(); got != "braille2" {
+		t.Fatalf("empty style should default to braille2, got %q", got)
+	}
+	if got := (Config{Style: "box"}).ChartStyle(); got != "box" {
+		t.Fatalf("explicit style should pass through, got %q", got)
+	}
+}
