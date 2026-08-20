@@ -35,7 +35,7 @@ func newSettingsModel(cfg store.Config) settingsModel {
 		modeIdx:  indexOf(len(gameModes), func(i int) bool { return store.ModeString(gameModes[i].limit) == cfg.Mode }),
 		srcIdx:   indexOf(len(textSources), func(i int) bool { return textSources[i].code == cfg.Source }),
 		langIdx:  indexOf(len(languages), func(i int) bool { return languages[i].code == cfg.Lang }),
-		styleIdx: indexOf(len(chartStyles), func(i int) bool { return chartStyles[i].code == cfg.Style }),
+		styleIdx: indexOf(len(chartStyles), func(i int) bool { return chartStyles[i].code == cfg.ChartStyle() }),
 		graphOn:  cfg.GraphAuto(),
 	}
 }

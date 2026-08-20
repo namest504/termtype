@@ -28,12 +28,28 @@ func TestSettingsCycleAndApply(t *testing.T) {
 	if changed, _ := m.handleKey(key(tcell.KeyRight)); !changed {
 		t.Fatal("right on mode row should report a change")
 	}
-	// row 4 = Style: Left → wraps to box
+	// row 4 = Style: Left twice (braille2 → braille1 → box)
 	m.row = 4
+	m.handleKey(key(tcell.KeyLeft))
 	m.handleKey(key(tcell.KeyLeft))
 	cfg := m.apply(store.Config{Theme: "cozy"})
 	if cfg.Mode != "ta15" || cfg.Style != "box" || cfg.Theme != "cozy" {
 		t.Fatalf("apply produced %+v", cfg)
+	}
+}
+
+func TestSettingsFreshConfigDefaultsToBraille2(t *testing.T) {
+	m := newSettingsModel(store.Config{})
+	// Fresh config should show braille2 (not braille1)
+	if chartStyles[m.styleIdx].code != "braille2" {
+		t.Fatalf("fresh config should default to braille2, got %s", chartStyles[m.styleIdx].code)
+	}
+	// Changing an unrelated row should not downgrade the style
+	m.row = 0 // Mode
+	m.handleKey(key(tcell.KeyRight))
+	cfg := m.apply(store.Config{})
+	if cfg.Style != "braille2" {
+		t.Fatalf("changing unrelated row should preserve braille2, got %s", cfg.Style)
 	}
 }
 
