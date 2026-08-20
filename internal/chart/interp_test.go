@@ -49,7 +49,7 @@ func TestSampleSmoothFallsBackBelowThree(t *testing.T) {
 	want := []float64{0, 5, 10}
 	for i := range want {
 		if got[i] != want[i] {
-			t.Errorf("2-sample smooth[%d] = %v, want %v", i, got, want[i])
+			t.Errorf("2-sample smooth[%d] = %v, want %v", i, got[i], want[i])
 		}
 	}
 }

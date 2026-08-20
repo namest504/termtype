@@ -11,16 +11,19 @@ var benchSeries = func() []float64 {
 }()
 
 func BenchmarkRender(b *testing.B) {
-	opts := map[string]Options{
-		"braille-1px": {Width: 64, Height: 10, Style: StyleBraille, Interp: InterpSmooth, Thickness: 1},
-		"braille-3px": {Width: 64, Height: 10, Style: StyleBraille, Interp: InterpSmooth, Thickness: 3},
-		"box":         {Width: 64, Height: 10, Style: StyleBox, Interp: InterpSmooth},
-		"ascii":       {Width: 64, Height: 10, Style: StyleASCII},
+	opts := []struct {
+		name string
+		opts Options
+	}{
+		{"braille-1px", Options{Width: 64, Height: 10, Style: StyleBraille, Interp: InterpSmooth, Thickness: 1}},
+		{"braille-3px", Options{Width: 64, Height: 10, Style: StyleBraille, Interp: InterpSmooth, Thickness: 3}},
+		{"box", Options{Width: 64, Height: 10, Style: StyleBox, Interp: InterpSmooth}},
+		{"ascii", Options{Width: 64, Height: 10, Style: StyleASCII}},
 	}
-	for name, o := range opts {
-		b.Run(name, func(b *testing.B) {
+	for _, tc := range opts {
+		b.Run(tc.name, func(b *testing.B) {
 			for b.Loop() {
-				Render(benchSeries, o)
+				Render(benchSeries, tc.opts)
 			}
 		})
 	}

@@ -9,13 +9,18 @@ import (
 )
 
 // feedKeys returns a buffered event channel pre-loaded with the given key
-// events. The loops under test consume them in order; the channel is left
-// open (loops exit via their own key handling, not channel close).
+// events. The loops under test consume them in order; the channel is closed
+// afterward so an over-consuming loop fails fast on a nil event instead of
+// deadlocking.
 func feedKeys(keys ...*tcell.EventKey) chan tcell.Event {
 	ch := make(chan tcell.Event, len(keys))
 	for _, k := range keys {
 		ch <- k
 	}
+	// Close the channel so a loop that over-consumes past the scripted keys
+	// receives a nil event and returns cleanly instead of deadlocking for
+	// the package's 10-minute timeout.
+	close(ch)
 	return ch
 }
 
