@@ -2,6 +2,7 @@ package themes
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/namest504/termtype/internal/domain"
 	"github.com/namest504/termtype/internal/ui"
 )
@@ -21,43 +22,49 @@ func (t *SimpleTheme) ResetState(gs *domain.GameState) {
 
 func (t *SimpleTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) {
 	renderer.Clear()
-
-	// Starting Y coordinate for drawing text
-	startY := 1
-
 	if !gs.IsFinished {
-		t.drawTypingScreen(renderer, gs, startY)
+		t.drawTypingScreen(renderer, gs)
 	} else {
-		t.drawResultScreen(renderer, gs, startY)
+		t.drawResultScreen(renderer, gs)
 	}
-
 	renderer.Show()
 }
 
-func (t *SimpleTheme) drawTypingScreen(renderer domain.Renderer, gs *domain.GameState, startY int) {
+func (t *SimpleTheme) drawTypingScreen(renderer domain.Renderer, gs *domain.GameState) {
 	w, h := renderer.Size()
-	maxLines := h - startY - 3 // leave room for the hint line below
+	rows := len(ui.WrapText(gs.TargetSentence, w-2))
+	maxLines := h - 4
 	if maxLines < 1 {
 		maxLines = 1
 	}
+	if rows > maxLines {
+		rows = maxLines
+	}
+	startY := (h - rows) / 2
+	if startY < 1 {
+		startY = 1
+	}
 	tr := &ui.TypingRenderer{}
-	rows := tr.Draw(renderer, gs, ui.TypingRendererOptions{
-		StartY:      startY,
-		Width:       w - 2, // 1 padding on each side
-		PrefixWidth: 0,
-		CenterText:  false,
-		MaxLines:    maxLines,
+	tr.Draw(renderer, gs, ui.TypingRendererOptions{
+		StartY: startY, Width: w - 2, PrefixWidth: 0, CenterText: true, MaxLines: maxLines,
 	})
-	renderer.DrawText(1, startY+rows+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), "(Esc for menu)")
+	hint := "esc menu"
+	renderer.DrawText((w-runewidth.StringWidth(hint))/2, h-2, tcell.StyleDefault.Foreground(tcell.ColorGray), hint)
 }
 
-func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.GameState, startY int) {
+func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.GameState) {
 	renderer.HideCursor()
-	defStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
-	resultText1 := ui.ResultText(gs)
-	resultText2 := "Press Enter for the next round, Esc for the menu."
-	renderer.DrawText(1, startY, defStyle, resultText1)
-	renderer.DrawText(1, startY+2, defStyle, resultText2)
+	w, h := renderer.Size()
+	gl := ui.Glyphs()
+	center := func(y int, style tcell.Style, s string) {
+		x := (w - runewidth.StringWidth(s)) / 2
+		if x < 0 {
+			x = 0
+		}
+		renderer.DrawText(x, y, style, ui.Truncate(s, w))
+	}
+	center(h/2-1, tcell.StyleDefault.Foreground(tcell.ColorWhite), ui.ResultText(gs))
+	center(h/2+1, tcell.StyleDefault.Foreground(tcell.ColorGray), gl.Send+" next "+gl.Sep+" esc menu")
 }
 
 func (t *SimpleTheme) OnTick(gs *domain.GameState) { /* Do nothing */ }

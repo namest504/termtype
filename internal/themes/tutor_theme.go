@@ -1,9 +1,11 @@
 package themes
 
 import (
+	"strings"
 	"unicode"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/namest504/termtype/internal/domain"
 	"github.com/namest504/termtype/internal/ui"
 )
@@ -156,16 +158,41 @@ func (t *TutorTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState
 		MaxLines:    textLines,
 	})
 
+	kbTop := top + rows + 1
+
 	if gs.IsFinished {
 		renderer.HideCursor()
-		renderer.DrawText(colX, top+rows+1, tcell.StyleDefault.Foreground(tcell.ColorWhite), ui.Truncate(ui.ResultText(gs), colW))
+		// Keep the keyboard and hands on screen (no key highlighted) so the
+		// result reads as a continuation of the same tutor layout rather than
+		// a jarring switch to plain text. The sentence area (just replaced by
+		// tr.Draw above) is overwritten with the centered result summary, the
+		// same slot the target text used.
+		blankW := colW
+		if blankW < 0 {
+			blankW = 0
+		}
+		blank := strings.Repeat(" ", blankW)
+		for i := 0; i < rows; i++ {
+			renderer.DrawText(colX, top+i, tcell.StyleDefault, blank)
+		}
+		result := ui.Truncate(ui.ResultText(gs), colW)
+		rx := colX + (colW-runewidth.StringWidth(result))/2
+		if rx < colX {
+			rx = colX
+		}
+		renderer.DrawText(rx, top, tcell.StyleDefault.Foreground(tcell.ColorWhite), result)
+		if showKB {
+			t.drawKeyboard(renderer, (w-kbWidth)/2, kbTop, 0, false, false)
+		}
+		if showHands {
+			t.drawHands(renderer, w, kbTop+kbRowsH+1, -1)
+		}
 		renderer.Show()
 		return
 	}
 
 	key, shift, ok := nextKeyInfo([]rune(gs.TargetSentence), []rune(gs.UserInput))
 
-	kbTop := top + rows + 1
 	if showKB {
 		t.drawKeyboard(renderer, (w-kbWidth)/2, kbTop, key, shift, ok)
 	}
@@ -218,14 +245,34 @@ func (t *TutorTheme) drawCap(renderer domain.Renderer, x, y int, k rune, color t
 	renderer.SetContent(x, y, k, style)
 }
 
-// handArt is one hand, thumb-side blank; the right hand mirrors it. Fingers
-// occupy fixed columns so the active one can be recolored.
-var handArt = []string{
+// handArtUnicode is one (left) hand with four distinct rounded-box fingers
+// and the thumb-side box; the right hand mirrors it. Width must stay
+// handWidth.
+var handArtUnicode = []string{
+	"╭╮╭╮╭╮╭╮   ",
+	"││││││││   ",
+	"││││││││╭─╮",
+	"│╰╯╰╯╰╯╰╯ │",
+	"╰─────────╯",
+}
+
+// handArtASCII is the fallback for terminals without box glyphs.
+var handArtASCII = []string{
 	"  _ _ _ _  ",
 	" | | | | | ",
 	" | | | | |_",
 	" |        |",
 	" |________|",
+}
+
+// handArt returns the active (left) hand art, ASCII or Unicode, for the
+// current glyph mode; the right hand mirrors it. Fingers occupy fixed
+// columns so the active one can be recolored.
+func handArt() []string {
+	if ui.IsASCII() {
+		return handArtASCII
+	}
+	return handArtUnicode
 }
 
 // handCell is one cell of a finger's highlight: its position in the (left)
@@ -235,14 +282,47 @@ type handCell struct {
 	r      rune
 }
 
-// fingerCells maps art fingers 0..3 (pinky..index on the left hand, index..
-// pinky mirrored on the right) plus 4 (thumb) to their highlight cells.
-var fingerCells = [][]handCell{
+// fingerCellsASCII maps handArtASCII fingers 0..3 (pinky..index on the left
+// hand, index..pinky mirrored on the right) plus 4 (thumb) to their
+// highlight cells.
+var fingerCellsASCII = [][]handCell{
 	{{2, 0, '_'}, {1, 1, '|'}, {3, 1, '|'}, {1, 2, '|'}, {3, 2, '|'}}, // pinky
 	{{4, 0, '_'}, {3, 1, '|'}, {5, 1, '|'}, {3, 2, '|'}, {5, 2, '|'}}, // ring
 	{{6, 0, '_'}, {5, 1, '|'}, {7, 1, '|'}, {5, 2, '|'}, {7, 2, '|'}}, // middle
 	{{8, 0, '_'}, {7, 1, '|'}, {9, 1, '|'}, {7, 2, '|'}, {9, 2, '|'}}, // index
 	{{10, 2, '_'}, {10, 3, '|'}},                                      // thumb hook
+}
+
+// fingerCellsUnicode maps handArtUnicode fingers 0..3 to their highlight
+// cells: finger i occupies columns 2i, 2i+1 across rows 0..3. Cell 4 is the
+// thumb-side box.
+var fingerCellsUnicode = buildUnicodeFingerCells()
+
+func buildUnicodeFingerCells() [][]handCell {
+	cells := make([][]handCell, 5)
+	for f := 0; f < 4; f++ {
+		for row := 0; row < 4; row++ {
+			line := []rune(handArtUnicode[row])
+			for _, col := range [2]int{2 * f, 2*f + 1} {
+				if col < len(line) && line[col] != ' ' {
+					cells[f] = append(cells[f], handCell{col, row, line[col]})
+				}
+			}
+		}
+	}
+	// Thumb-side box (the rounded corner opposite the fingers).
+	cells[4] = []handCell{
+		{8, 2, '╭'}, {9, 2, '─'}, {10, 2, '╮'}, {10, 3, '│'},
+	}
+	return cells
+}
+
+// fingerCells returns the active finger-highlight table matching handArt().
+func fingerCells() [][]handCell {
+	if ui.IsASCII() {
+		return fingerCellsASCII
+	}
+	return fingerCellsUnicode
 }
 
 func (t *TutorTheme) drawHands(renderer domain.Renderer, w, y, finger int) {
@@ -253,8 +333,11 @@ func (t *TutorTheme) drawHands(renderer domain.Renderer, w, y, finger int) {
 	lx := (w - (2*handWidth + gap)) / 2
 	rx := lx + handWidth + gap
 
+	art := handArt()
+	cells := fingerCells()
+
 	// Base art: the right hand is the left mirrored.
-	for row, line := range handArt {
+	for row, line := range art {
 		runes := []rune(line)
 		for col, r := range runes {
 			if r != ' ' {
@@ -274,18 +357,37 @@ func (t *TutorTheme) drawHands(renderer domain.Renderer, w, y, finger int) {
 
 	// Recolor the active finger's cells ('_' and '|' mirror onto themselves).
 	if finger <= lThumb { // left hand: finger index matches art order
-		for _, c := range fingerCells[finger] {
+		for _, c := range cells[finger] {
 			renderer.SetContent(lx+c.dx, y+c.dy, c.r, accent)
 		}
 	} else { // right hand: mirror the column
-		art := rPinky - finger // 9→0 pinky .. 6→3 index
+		artIdx := rPinky - finger // 9→0 pinky .. 6→3 index
 		if finger == rThumb {
-			art = 4
+			artIdx = 4
 		}
-		for _, c := range fingerCells[art] {
-			renderer.SetContent(rx+(handWidth-1-c.dx), y+c.dy, c.r, accent)
+		for _, c := range cells[artIdx] {
+			renderer.SetContent(rx+(handWidth-1-c.dx), y+c.dy, mirrorRune(c.r), accent)
 		}
 	}
+}
+
+// mirrorGlyphs maps direction-sensitive box-drawing (and similar) glyphs to
+// their horizontal mirror image. Glyphs not listed (e.g. '│', '─', '╷') are
+// self-symmetric and pass through unchanged.
+var mirrorGlyphs = map[rune]rune{
+	'╭': '╮', '╮': '╭',
+	'╰': '╯', '╯': '╰',
+	'╱': '╲', '╲': '╱',
+	'<': '>', '>': '<',
+}
+
+// mirrorRune returns the horizontal mirror of a single glyph, or the glyph
+// itself if it has no direction-sensitive counterpart.
+func mirrorRune(r rune) rune {
+	if m, ok := mirrorGlyphs[r]; ok {
+		return m
+	}
+	return r
 }
 
 // mirrorRunes flips a hand row horizontally, swapping the glyphs that have
@@ -293,7 +395,7 @@ func (t *TutorTheme) drawHands(renderer domain.Renderer, w, y, finger int) {
 func mirrorRunes(runes []rune) []rune {
 	out := make([]rune, len(runes))
 	for i, r := range runes {
-		out[len(runes)-1-i] = r
+		out[len(runes)-1-i] = mirrorRune(r)
 	}
 	return out
 }

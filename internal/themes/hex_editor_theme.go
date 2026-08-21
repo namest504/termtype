@@ -180,8 +180,19 @@ func (t *HexTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, st
 	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
 
 	stats := []byte(ui.ResultText(gs))
-	targetRows := (len([]byte(gs.TargetSentence)) + 15) / 16
-	startRow := state.StartLine + targetRows + 1 // one blank dump row of breathing room
+	_, visible := hexWindow(len([]byte(gs.TargetSentence)), len([]byte(gs.UserInput)), h-state.StartLine-1)
+	startRow := state.StartLine + visible + 1 // one blank dump row of breathing room
+
+	statRows := (len(stats) + 15) / 16
+	if statRows < 1 {
+		statRows = 1
+	}
+	if startRow+statRows > h {
+		startRow = h - statRows
+	}
+	if startRow < 0 {
+		startRow = 0
+	}
 
 	for r := 0; r*16 < len(stats); r++ {
 		y := startRow + r

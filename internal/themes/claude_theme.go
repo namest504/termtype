@@ -75,7 +75,7 @@ var claudeScenarios = []claudeScenario{
 			{cToolCall, "Update(server.go)"},
 			{cToolRes, "Updated server.go with 38 additions and 6 removals"},
 			{cToolCall, "Bash(go test ./...)"},
-			{cToolRes, "ok — 42 tests passed"},
+			{cToolRes, "ok - 42 tests passed"},
 			{cAsst, "Done - the server now drains connections on SIGTERM."},
 		},
 	},
@@ -108,7 +108,7 @@ var claudeScenarios = []claudeScenario{
 		active: []cLine{
 			{cAsst, "I'll run the suite to confirm the flake is gone."},
 			{cToolCall, "Bash(go test ./internal/cache/ -count=20)"},
-			{cToolRes, "ok — 20 runs, no failures"},
+			{cToolRes, "ok - 20 runs, no failures"},
 			{cAsst, "All green - want me to check the other suites?"},
 		},
 	},
@@ -205,11 +205,14 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	// Render the conversation bottom-anchored, ending just above the status row.
 	firstRow := statusRow - len(convo)
+	prevWasTodo := false
 	for i, ln := range convo {
 		y := firstRow + i
+		isTodo := ln.kind == cToolRes && isTodoLine(ln.text)
 		if y >= 0 && y < statusRow {
-			t.drawConvoLine(renderer, y, w, ln, white, orange, faint)
+			t.drawConvoLine(renderer, y, w, ln, white, orange, faint, prevWasTodo && isTodo)
 		}
+		prevWasTodo = isTodo
 	}
 
 	t.drawStatus(renderer, gs, st, sc.active, reveal, statusRow, w, orange, faint)
@@ -220,7 +223,13 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 	renderer.Show()
 }
 
-func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style) {
+// isTodoLine reports whether a tool-result line is one of the TODO_* scene
+// lines drawn under an "Update Todos" call.
+func isTodoLine(text string) bool {
+	return strings.HasPrefix(text, "TODO_DONE ") || strings.HasPrefix(text, "TODO_OPEN ")
+}
+
+func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style, skipBranch bool) {
 	gl := ui.Glyphs()
 	green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	switch ln.kind {
@@ -240,7 +249,13 @@ func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine
 		} else if rest, ok := strings.CutPrefix(text, "TODO_OPEN "); ok {
 			text = gl.TodoOpen + " " + rest
 		}
-		renderer.DrawText(2, y, faint, gl.ToolBranch)
+		// Consecutive TODO_* lines belong to the same "Update Todos" scene, so
+		// only the first prints the branch marker; the rest indent to match.
+		if skipBranch {
+			renderer.DrawText(2, y, faint, strings.Repeat(" ", runewidth.StringWidth(gl.ToolBranch)))
+		} else {
+			renderer.DrawText(2, y, faint, gl.ToolBranch)
+		}
 		renderer.DrawText(4, y, faint, ui.Truncate(text, w-4))
 	}
 }
@@ -257,7 +272,12 @@ func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState,
 	if reveal >= len(active) {
 		doneAt := len(active) * claudeRevealEvery
 		green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
-		msg := fmt.Sprintf("%s responded in %ds %s %d edits %s esc to interrupt", gl.Check, doneAt, gl.Sep, claudeToolCount(active), gl.Sep)
+		edits := claudeToolCount(active)
+		editWord := "edits"
+		if edits == 1 {
+			editWord = "edit"
+		}
+		msg := fmt.Sprintf("%s responded in %ds %s %d %s", gl.Check, doneAt, gl.Sep, edits, editWord)
 		renderer.DrawText(0, statusRow, green, ui.Truncate(msg, w))
 		return
 	}
@@ -331,7 +351,7 @@ func (t *ClaudeTheme) drawHint(renderer domain.Renderer, gs *domain.GameState, h
 		renderer.DrawText(0, hintRow, dim, ui.Truncate(result, w))
 		return
 	}
-	left := "? for shortcuts " + gl.Sep + " esc menu"
+	left := "esc menu " + gl.Sep + " ? for shortcuts"
 	right := gl.FastFwd + " accept edits on (shift+tab to cycle)"
 	renderer.DrawText(0, hintRow, faint, ui.Truncate(left, w))
 	if lw, rw := runewidth.StringWidth(left), runewidth.StringWidth(right); lw+rw+2 <= w {
