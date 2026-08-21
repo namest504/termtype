@@ -1,3 +1,7 @@
+// Package ui renders the terminal UI: screen drawing, glyphs, charts,
+// layout helpers, and the typing-area renderer. It draws through the
+// domain.Renderer interface, so it has no dependency on a concrete backend
+// beyond this package's own tcell-based Renderer implementation.
 package ui
 
 import (
@@ -18,7 +22,7 @@ func NewRenderer(s tcell.Screen) *Renderer {
 // DrawText draws text on the screen.
 func (r *Renderer) DrawText(x, y int, style tcell.Style, text string) {
 	currentX := x
-	for _, runeVal := range []rune(text) {
+	for _, runeVal := range text {
 		width := r.DrawRune(currentX, y, runeVal, style)
 		currentX += width
 	}

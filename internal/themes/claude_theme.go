@@ -21,6 +21,8 @@ func init() {
 // terminal size.
 type ClaudeTheme struct{}
 
+// ClaudeThemeState is ClaudeTheme's per-round state: which scenario is
+// playing and how many of its lines have been revealed so far.
 type ClaudeThemeState struct {
 	tick int
 	scen int // index into claudeScenarios for this round

@@ -1,3 +1,6 @@
+// Package domain holds the game's core, theme-independent types: the round
+// state (GameState), the Theme/Renderer interfaces every theme implements,
+// and the sentence/word pools targets are drawn from.
 package domain
 
 import (
@@ -14,7 +17,7 @@ type GameState struct {
 	StartTime      time.Time
 	TimerStarted   bool
 	IsFinished     bool
-	Wpm            float64
+	WPM            float64
 	Accuracy       float64
 
 	// Mode
@@ -68,7 +71,7 @@ func (gs *GameState) ResetCommon() {
 	gs.UserInput = ""
 	gs.TimerStarted = false
 	gs.IsFinished = false
-	gs.Wpm = 0
+	gs.WPM = 0
 	gs.Accuracy = 0
 	gs.TimedOut = false
 	gs.Paused = false
@@ -180,7 +183,7 @@ func (gs *GameState) Finalize() {
 	}
 
 	var correct int
-	gs.Wpm, gs.Accuracy, correct = gs.computeStats()
+	gs.WPM, gs.Accuracy, correct = gs.computeStats()
 
 	dur := gs.Elapsed()
 	gs.FinalDurS = dur.Seconds()

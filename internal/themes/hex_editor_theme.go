@@ -20,6 +20,8 @@ func init() {
 // byte offset.
 type HexTheme struct{}
 
+// HexThemeState is HexTheme's per-round state: the stable background dump
+// and the current scroll offset into it.
 type HexThemeState struct {
 	StartLine int
 	rows      [][]byte // stable background dump, one 16-byte row per line

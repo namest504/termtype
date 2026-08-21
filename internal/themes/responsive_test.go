@@ -59,7 +59,7 @@ func TestThemes_NoPanicAcrossSizes(t *testing.T) {
 					}
 					// Also render the finished state
 					gs.IsFinished = true
-					gs.Wpm = 61.2
+					gs.WPM = 61.2
 					gs.Accuracy = 97.5
 					theme.UpdateScreen(r, gs)
 				}()

@@ -1,3 +1,4 @@
+// termtype is a typing practice game for the terminal.
 package main
 
 import (
@@ -93,7 +94,7 @@ var languages = []language{
 
 func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 	col := x
-	for _, r := range []rune(text) {
+	for _, r := range text {
 		s.SetContent(col, y, r, nil, style)
 		col += runewidth.RuneWidth(r)
 	}

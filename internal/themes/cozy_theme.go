@@ -179,7 +179,7 @@ func (t *CozyTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, w
 	}
 
 	drawCentered(top, tcell.StyleDefault.Foreground(cozyAccent).Background(cozyBg),
-		fmt.Sprintf("wpm: %.0f", gs.Wpm))
+		fmt.Sprintf("wpm: %.0f", gs.WPM))
 	y := top + 2
 	if chartH > 0 {
 		chartW := w - 10

@@ -1,3 +1,6 @@
+// Package app runs one typing session: it owns the terminal screen, drives
+// the game loop and theme rendering, and records finished rounds to the
+// store.
 package app
 
 import (
@@ -22,7 +25,8 @@ type RoundMeta struct {
 	Source string // "builtin" | "custom"
 }
 
-// Struct that manages the entire game
+// Game manages one typing session end to end: the screen, the current
+// theme, the round state, and the history it appends finished rounds to.
 type Game struct {
 	screen   tcell.Screen
 	renderer *ui.Renderer
@@ -38,12 +42,13 @@ type Game struct {
 	autoGraph  bool          // pop the graph view whenever a round finishes
 }
 
-// Create a new game. timeLimit > 0 enables time-attack mode. sentences is the
-// pool the chosen theme draws targets from; an empty pool falls back to the
-// default English set. targetGen, when non-nil, replaces the pool entirely
-// (the "words" source). meta labels recorded rounds; st may be nil to disable
-// persistence. autoGraph pops the graph view whenever a round finishes —
-// except on the cozy theme, whose result screen already embeds the chart.
+// NewGame creates a new game. timeLimit > 0 enables time-attack mode.
+// sentences is the pool the chosen theme draws targets from; an empty pool
+// falls back to the default English set. targetGen, when non-nil, replaces
+// the pool entirely (the "words" source). meta labels recorded rounds; st
+// may be nil to disable persistence. autoGraph pops the graph view whenever
+// a round finishes — except on the cozy theme, whose result screen already
+// embeds the chart.
 func NewGame(s tcell.Screen, theme domain.Theme, timeLimit time.Duration, sentences []string, targetGen func() string, meta RoundMeta, st *store.Store, autoGraph bool) (*Game, error) {
 	if len(sentences) == 0 {
 		sentences = domain.Sentences
@@ -127,7 +132,7 @@ func (g *Game) finalizeRound() {
 		Theme:     g.meta.Theme,
 		Mode:      store.ModeString(g.state.TimeLimit),
 		Lang:      g.meta.Lang,
-		WPM:       g.state.Wpm,
+		WPM:       g.state.WPM,
 		Acc:       g.state.Accuracy,
 		DurS:      g.state.FinalDurS,
 		Source:    g.meta.Source,
@@ -200,7 +205,7 @@ func (g *Game) drawGraphView() {
 		top = 0
 	}
 
-	centered(top, tcell.StyleDefault.Foreground(tcell.ColorGreen), fmt.Sprintf("wpm: %.0f", g.state.Wpm))
+	centered(top, tcell.StyleDefault.Foreground(tcell.ColorGreen), fmt.Sprintf("wpm: %.0f", g.state.WPM))
 	ui.DrawLineChart(g.renderer, (w-chartW)/2, top+2, chartW, chartH, g.state.WPMSamples,
 		tcell.StyleDefault.Foreground(tcell.ColorGray),
 		tcell.StyleDefault.Foreground(tcell.ColorYellow))

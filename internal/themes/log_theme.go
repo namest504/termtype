@@ -27,10 +27,13 @@ func init() {
 	Themes["log"] = &LogTheme{}
 }
 
-// --- Log Theme --- //
-
+// LogTheme mimics a streaming application log: the target text appears as
+// the line currently being typed, framed by decorative background log lines
+// above and below it.
 type LogTheme struct{}
 
+// LogThemeState is LogTheme's per-round state: the formatted target log
+// line and the decorative background lines around it.
 type LogThemeState struct {
 	targetLogLine  string
 	logPrefix      string
@@ -140,7 +143,7 @@ func (t *LogTheme) drawResultLine(renderer domain.Renderer, gs *domain.GameState
 	renderer.HideCursor()
 	renderer.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
 
-	resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.Wpm, gs.Accuracy)
+	resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.WPM, gs.Accuracy)
 	renderer.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
 
 	guideText := "Press Enter for the next round, Esc for the menu."

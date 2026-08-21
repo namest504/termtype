@@ -13,7 +13,7 @@ import (
 // sortedThemeNames returns the registry names in menu order: cozy leads
 // (the default), log keeps second place, the rest follow alphabetically.
 func sortedThemeNames() []string {
-	var names []string
+	names := make([]string, 0, len(themes.Themes))
 	for name := range themes.Themes {
 		names = append(names, name)
 	}
