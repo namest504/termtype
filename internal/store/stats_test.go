@@ -42,13 +42,20 @@ func TestRecentWPMsLastN(t *testing.T) {
 
 func TestModeString(t *testing.T) {
 	cases := []struct {
+		name  string
 		limit time.Duration
 		want  string
-	}{{0, "normal"}, {30 * time.Second, "ta30"}, {60 * time.Second, "ta60"}}
-	for _, c := range cases {
-		if got := ModeString(c.limit); got != c.want {
-			t.Errorf("ModeString(%v) = %q, want %q", c.limit, got, c.want)
-		}
+	}{
+		{"no limit", 0, "normal"},
+		{"30s limit", 30 * time.Second, "ta30"},
+		{"60s limit", 60 * time.Second, "ta60"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ModeString(tc.limit); got != tc.want {
+				t.Errorf("ModeString(%v) = %q, want %q", tc.limit, got, tc.want)
+			}
+		})
 	}
 }
 
