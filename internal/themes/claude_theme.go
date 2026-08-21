@@ -45,6 +45,10 @@ const (
 	cAsst
 	cToolCall // ⏺ Name(args) — a tool invocation
 	cToolRes  // ⎿ result line under a call
+	cBlank    // blank line — draws nothing, spacing between blocks
+	cDiffDel  // diff removal line: "12 -  old code" — line number dim, rest red
+	cDiffAdd  // diff addition line: "12 +  new code" — line number dim, rest green
+	cOut      // Bash output dump line — faint, indented under a Bash(...) call
 )
 
 type cLine struct {
@@ -62,54 +66,72 @@ type claudeScenario struct {
 var claudeScenarios = []claudeScenario{
 	{
 		history: []cLine{
-			{cHuman, "split the monolith handler into smaller functions"},
-			{cAsst, "I'll extract request parsing and validation first."},
-			{cToolCall, "Read(handler.go)"},
-			{cToolRes, "Read 210 lines (ctrl+o to expand)"},
-			{cToolCall, "Update(handler.go)"},
-			{cToolRes, "Updated handler.go with 96 additions and 120 removals"},
-			{cAsst, "Done - split into parseRequest, validate, and dispatch."},
+			{cHuman, "why is the cache test flaky"},
+			{cBlank, ""},
+			{cAsst, "The TTL assertion races the clock; I'll inject a fake timer."},
+			{cBlank, ""},
+			{cToolCall, "Search(pattern: \"time.Sleep\", path: internal/cache)"},
+			{cToolRes, "Found 3 matches in 2 files"},
 		},
 		active: []cLine{
-			{cAsst, "I'll add graceful shutdown so in-flight work can finish."},
-			{cToolCall, "Update(server.go)"},
-			{cToolRes, "Updated server.go with 38 additions and 6 removals"},
-			{cToolCall, "Bash(go test ./...)"},
-			{cToolRes, "ok - 42 tests passed"},
-			{cAsst, "Done - the server now drains connections on SIGTERM."},
+			{cToolCall, "Update(cache_test.go)"},
+			{cToolRes, "Updated cache_test.go with 2 additions and 1 removal"},
+			{cDiffDel, "12 -  time.Sleep(ttl)"},
+			{cDiffAdd, "12 +  clock.Advance(ttl)"},
+			{cDiffAdd, "13 +  c.Sweep()"},
+			{cBlank, ""},
+			{cToolCall, "Bash(go test ./internal/cache/ -count=20)"},
+			{cOut, "ok   internal/cache  2.41s"},
+			{cOut, "PASS (20 runs, no failures)"},
+			{cBlank, ""},
+			{cAsst, "All green - the test drives a fake clock now."},
 		},
 	},
 	{
 		history: []cLine{
 			{cHuman, "add retry with backoff to the fetcher"},
-			{cAsst, "I'll wrap the client call in a retry loop."},
+			{cBlank, ""},
 			{cToolCall, "Update Todos"},
 			{cToolRes, "TODO_DONE Add retry helper with jitter"},
 			{cToolRes, "TODO_OPEN Make the timeout configurable"},
-			{cAsst, "Done - three attempts with jittered backoff."},
+			{cBlank, ""},
+			{cAsst, "I'll wrap the client call in a retry loop."},
 		},
 		active: []cLine{
-			{cAsst, "I'll make the timeout configurable next."},
-			{cToolCall, "Read(config.go)"},
-			{cToolRes, "Read 54 lines (ctrl+o to expand)"},
-			{cToolCall, "Update(config.go)"},
-			{cToolRes, "Updated config.go with 12 additions and 2 removals"},
-			{cAsst, "Done - FETCH_TIMEOUT now overrides the default."},
+			{cToolCall, "Read(fetch.go)"},
+			{cToolRes, "Read 88 lines (ctrl+o to expand)"},
+			{cBlank, ""},
+			{cToolCall, "Update(fetch.go)"},
+			{cToolRes, "Updated fetch.go with 3 additions and 1 removal"},
+			{cDiffDel, "41 -  resp, err := client.Do(req)"},
+			{cDiffAdd, "41 +  resp, err := retry(3, backoff, func() (*http.Response, error) {"},
+			{cDiffAdd, "42 +      return client.Do(req)"},
+			{cDiffAdd, "43 +  })"},
+			{cBlank, ""},
+			{cAsst, "Done - three attempts with jittered backoff."},
 		},
 	},
 	{
 		history: []cLine{
-			{cHuman, "why is the cache test flaky"},
-			{cAsst, "The TTL assertion races the clock; I'll inject a fake timer."},
-			{cToolCall, "Update(cache_test.go)"},
-			{cToolRes, "Updated cache_test.go with 18 additions and 9 removals"},
-			{cAsst, "Done - the test drives a fake clock now."},
+			{cHuman, "the worker crashed overnight - find out why"},
+			{cBlank, ""},
+			{cToolCall, "Bash(grep -c ERROR /var/log/worker.log)"},
+			{cOut, "217"},
 		},
 		active: []cLine{
-			{cAsst, "I'll run the suite to confirm the flake is gone."},
-			{cToolCall, "Bash(go test ./internal/cache/ -count=20)"},
-			{cToolRes, "ok - 20 runs, no failures"},
-			{cAsst, "All green - want me to check the other suites?"},
+			{cToolCall, "Bash(tail -n 3 /var/log/worker.log)"},
+			{cOut, "02:14:07 ERROR queue: connection reset by peer"},
+			{cOut, "02:14:08 ERROR queue: reconnect failed (attempt 5)"},
+			{cOut, "02:14:08 FATAL worker: giving up after 5 attempts"},
+			{cBlank, ""},
+			{cAsst, "The queue connection dies at 02:14 and retries are capped at 5."},
+			{cBlank, ""},
+			{cToolCall, "Update(worker.go)"},
+			{cToolRes, "Updated worker.go with 1 addition and 1 removal"},
+			{cDiffDel, "58 -  MaxRetries: 5,"},
+			{cDiffAdd, "58 +  MaxRetries: 0, // retry forever with backoff"},
+			{cBlank, ""},
+			{cAsst, "Done - the worker now rides out queue outages."},
 		},
 	},
 }
@@ -232,7 +254,25 @@ func isTodoLine(text string) bool {
 func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style, skipBranch bool) {
 	gl := ui.Glyphs()
 	green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	red := tcell.StyleDefault.Foreground(tcell.ColorRed)
 	switch ln.kind {
+	case cBlank:
+		// draws nothing — spacing between blocks
+	case cDiffDel, cDiffAdd:
+		color := red
+		if ln.kind == cDiffAdd {
+			color = green
+		}
+		numStr, rest, ok := strings.Cut(ln.text, " ")
+		if !ok {
+			renderer.DrawText(7, y, color, ui.Truncate(ln.text, w-7))
+			return
+		}
+		renderer.DrawText(7, y, faint, ui.Truncate(numStr, w-7))
+		restX := 7 + runewidth.StringWidth(numStr) + 1
+		renderer.DrawText(restX, y, color, ui.Truncate(rest, w-restX))
+	case cOut:
+		renderer.DrawText(5, y, faint, ui.Truncate(ln.text, w-5))
 	case cHuman:
 		renderer.DrawText(0, y, faint, "> ")
 		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
