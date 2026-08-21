@@ -1,6 +1,12 @@
 package themes
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/namest504/termtype/internal/domain"
+	"github.com/namest504/termtype/internal/ui"
+)
 
 func TestTutorRegistered(t *testing.T) {
 	if _, ok := Themes["tutor"]; !ok {
@@ -49,19 +55,119 @@ func TestNextKeyInfo(t *testing.T) {
 }
 
 func TestFingerCellsInsideHandArt(t *testing.T) {
-	for f, cells := range fingerCells {
-		for _, c := range cells {
-			if c.dy < 0 || c.dy >= len(handArt) {
-				t.Fatalf("finger %d cell row %d outside the art", f, c.dy)
-			}
-			row := []rune(handArt[c.dy])
-			if c.dx < 0 || c.dx >= len(row) {
-				t.Fatalf("finger %d cell col %d outside the art", f, c.dx)
-			}
-			if row[c.dx] != c.r {
-				t.Errorf("finger %d cell (%d,%d) glyph %q does not match the art %q",
-					f, c.dx, c.dy, c.r, row[c.dx])
+	cases := []struct {
+		name  string
+		art   []string
+		cells [][]handCell
+	}{
+		{"ascii", handArtASCII, fingerCellsASCII},
+		{"unicode", handArtUnicode, fingerCellsUnicode},
+	}
+	for _, tc := range cases {
+		for f, cells := range tc.cells {
+			for _, c := range cells {
+				if c.dy < 0 || c.dy >= len(tc.art) {
+					t.Fatalf("%s: finger %d cell row %d outside the art", tc.name, f, c.dy)
+				}
+				row := []rune(tc.art[c.dy])
+				if c.dx < 0 || c.dx >= len(row) {
+					t.Fatalf("%s: finger %d cell col %d outside the art", tc.name, f, c.dx)
+				}
+				if row[c.dx] != c.r {
+					t.Errorf("%s: finger %d cell (%d,%d) glyph %q does not match the art %q",
+						tc.name, f, c.dx, c.dy, c.r, row[c.dx])
+				}
 			}
 		}
 	}
+}
+
+// 결과 화면에도 키보드가 남아 있어야 한다 (충분히 큰 화면에서).
+func TestTutorResultKeepsKeyboard(t *testing.T) {
+	theme := &TutorTheme{}
+	w, h := 100, 40
+
+	gs := &domain.GameState{Sentences: []string{"hello world"}}
+	theme.ResetState(gs)
+	gs.TargetSentence = "hello world"
+	gs.UserInput = "hello world"
+	gs.IsFinished = true
+	gs.WPM = 61.2
+	gs.Accuracy = 97.5
+	gs.FinalDurS = 12
+
+	r := newGridRenderer(w, h)
+	theme.UpdateScreen(r, gs)
+
+	// The second keyboard row is "qwertyuiop[]\\"; look for that run of
+	// keys somewhere on the grid.
+	found := false
+	for y := 0; y < h; y++ {
+		if strings.Contains(string(r.grid[y]), "q") && strings.Contains(string(r.grid[y]), "p") {
+			// Confirm it's really the qwerty row, not incidental letters
+			// elsewhere: q must appear before p on the same row.
+			line := string(r.grid[y])
+			if strings.Index(line, "q") < strings.Index(line, "p") {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Error("finished tutor screen should still show the keyboard's q..p row")
+	}
+
+	// The result text should also be present somewhere on screen.
+	result := ui.ResultText(gs)
+	resultFound := false
+	for y := 0; y < h; y++ {
+		if strings.Contains(string(r.grid[y]), "wpm") {
+			resultFound = true
+			break
+		}
+	}
+	if !resultFound {
+		t.Errorf("finished tutor screen should show the result text %q", result)
+	}
+}
+
+// 유니코드 손 아트는 라운드 박스 글리프를 쓴다.
+func TestTutorHandsRounded(t *testing.T) {
+	theme := &TutorTheme{}
+	w, h := 100, 40
+
+	render := func() *gridRenderer {
+		gs := &domain.GameState{Sentences: []string{"hello world"}}
+		theme.ResetState(gs)
+		gs.TargetSentence = "hello world"
+		gs.UserInput = ""
+		r := newGridRenderer(w, h)
+		theme.UpdateScreen(r, gs)
+		return r
+	}
+
+	ui.SetASCII(false)
+	t.Cleanup(func() { ui.SetASCII(false) })
+	r := render()
+	if !gridContainsRune(r, '╭') {
+		t.Error("Unicode mode should draw rounded hand-art glyphs like '╭'")
+	}
+
+	ui.SetASCII(true)
+	r = render()
+	ui.SetASCII(false)
+	if gridContainsRune(r, '╭') {
+		t.Error("ASCII mode should not draw rounded box glyphs")
+	}
+}
+
+func gridContainsRune(r *gridRenderer, want rune) bool {
+	for y := 0; y < r.h; y++ {
+		for x := 0; x < r.w; x++ {
+			if r.grid[y][x] == want {
+				return true
+			}
+		}
+	}
+	return false
 }
