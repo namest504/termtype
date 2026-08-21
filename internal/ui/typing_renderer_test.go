@@ -7,16 +7,24 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// mockCell holds the rune and style last written to one screen position.
+type mockCell struct {
+	r     rune
+	style tcell.Style
+}
+
 // MockScreen is a mock implementation of tcell.Screen for testing
 type MockScreen struct {
 	tcell.Screen
 	cells map[int]map[int]rune
+	sty   map[int]map[int]mockCell
 	w, h  int
 }
 
 func NewMockScreen(w, h int) *MockScreen {
 	return &MockScreen{
 		cells: make(map[int]map[int]rune),
+		sty:   make(map[int]map[int]mockCell),
 		w:     w,
 		h:     h,
 	}
@@ -27,6 +35,21 @@ func (m *MockScreen) SetContent(x, y int, mainc rune, combc []rune, style tcell.
 		m.cells[y] = make(map[int]rune)
 	}
 	m.cells[y][x] = mainc
+	if m.sty[y] == nil {
+		m.sty[y] = make(map[int]mockCell)
+	}
+	m.sty[y][x] = mockCell{r: mainc, style: style}
+}
+
+// Cell returns the rune and style last written at (x, y). A position never
+// written returns the zero rune and tcell.StyleDefault.
+func (m *MockScreen) Cell(x, y int) (rune, tcell.Style) {
+	if row, ok := m.sty[y]; ok {
+		if c, ok := row[x]; ok {
+			return c.r, c.style
+		}
+	}
+	return 0, tcell.StyleDefault
 }
 
 func (m *MockScreen) Size() (int, int) {
