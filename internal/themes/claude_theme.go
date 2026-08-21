@@ -146,6 +146,94 @@ func claudeToolCount(active []cLine) int {
 	return n
 }
 
+// isResultKind reports whether a line belongs to a tool's result block: the
+// ⎿ summary line plus any diff/output lines under it. In the real CLI these
+// pop in together the instant the tool finishes, so they reveal as one unit.
+func isResultKind(k cKind) bool {
+	switch k {
+	case cToolRes, cDiffDel, cDiffAdd, cOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// claudeGroupLines partitions active into reveal groups: a maximal
+// consecutive run of result-kind lines (cToolRes/cDiffDel/cDiffAdd/cOut) is
+// one atomic group (a tool's whole result block), and every other line
+// (cHuman/cAsst/cToolCall) is its own group. A cBlank line attaches to the
+// group that follows it (so spacing appears together with the next block);
+// a trailing cBlank with nothing after it attaches to the previous group.
+// A cBlank also always starts a new group boundary, even between two
+// result-kind lines, so it never gets silently absorbed into a result run.
+func claudeGroupLines(active []cLine) [][]cLine {
+	var groups [][]cLine
+	var current []cLine
+	var pendingBlanks []cLine
+	inResultRun := false
+
+	flush := func() {
+		if len(current) > 0 {
+			groups = append(groups, current)
+			current = nil
+		}
+	}
+
+	for _, ln := range active {
+		if ln.kind == cBlank {
+			pendingBlanks = append(pendingBlanks, ln)
+			continue
+		}
+		if isResultKind(ln.kind) && inResultRun && len(pendingBlanks) == 0 {
+			current = append(current, ln)
+			continue
+		}
+		flush()
+		current = append(current, pendingBlanks...)
+		pendingBlanks = nil
+		current = append(current, ln)
+		inResultRun = isResultKind(ln.kind)
+		if !inResultRun {
+			flush()
+		}
+	}
+
+	if len(pendingBlanks) > 0 {
+		if len(current) > 0 {
+			current = append(current, pendingBlanks...)
+		} else if len(groups) > 0 {
+			groups[len(groups)-1] = append(groups[len(groups)-1], pendingBlanks...)
+		} else {
+			current = append(current, pendingBlanks...)
+		}
+	}
+	flush()
+
+	return groups
+}
+
+// groupCount returns how many reveal groups active partitions into.
+func groupCount(active []cLine) int {
+	return len(claudeGroupLines(active))
+}
+
+// revealLineCount returns how many of active's lines are covered by the
+// first n reveal groups (n clamped to [0, groupCount(active)]).
+func revealLineCount(active []cLine, n int) int {
+	groups := claudeGroupLines(active)
+	if n <= 0 {
+		return 0
+	}
+	if n >= len(groups) {
+		return len(active)
+	}
+	count := 0
+	for _, g := range groups[:n] {
+		count += len(g)
+	}
+	return count
+}
+
 func (t *ClaudeTheme) ResetState(gs *domain.GameState) {
 	gs.ResetCommon()
 	gs.TargetSentence = gs.RandomSentence()
@@ -212,14 +300,18 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	sc := claudeScenarios[st.scen%len(claudeScenarios)]
 
-	// How much of the active (in-progress) turn has streamed in so far.
-	reveal := len(sc.active)
+	// How much of the active (in-progress) turn has streamed in so far, in
+	// whole reveal groups: a tool's whole result block pops in at once,
+	// while every other line streams on its own.
+	totalGroups := groupCount(sc.active)
+	revealGroups := totalGroups
 	if !gs.IsFinished {
-		reveal = st.tick / claudeRevealEvery
-		if reveal > len(sc.active) {
-			reveal = len(sc.active)
+		revealGroups = st.tick / claudeRevealEvery
+		if revealGroups > totalGroups {
+			revealGroups = totalGroups
 		}
 	}
+	reveal := revealLineCount(sc.active, revealGroups)
 
 	convo := make([]cLine, 0, len(sc.history)+reveal)
 	convo = append(convo, sc.history...)
@@ -237,7 +329,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 		prevWasTodo = isTodo
 	}
 
-	t.drawStatus(renderer, gs, st, sc.active, reveal, statusRow, w, orange, faint)
+	t.drawStatus(renderer, gs, st, sc.active, revealGroups, totalGroups, statusRow, w, orange, faint)
 	t.drawBox(renderer, boxTop, boxBottom, w, dim)
 	t.drawInput(renderer, gs, wrapped, boxTop, boxRows, w, orange, dim)
 	t.drawHint(renderer, gs, hintRow, w, dim, faint)
@@ -300,7 +392,7 @@ func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine
 	}
 }
 
-func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, active []cLine, reveal, statusRow, w int, orange, faint tcell.Style) {
+func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, active []cLine, revealGroups, totalGroups, statusRow, w int, orange, faint tcell.Style) {
 	if statusRow < 0 {
 		return
 	}
@@ -309,8 +401,8 @@ func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState,
 		renderer.DrawText(0, statusRow, orange, ui.Truncate(gl.AsstDot+" Message sent", w))
 		return
 	}
-	if reveal >= len(active) {
-		doneAt := len(active) * claudeRevealEvery
+	if revealGroups >= totalGroups {
+		doneAt := totalGroups * claudeRevealEvery
 		green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 		edits := claudeToolCount(active)
 		editWord := "edits"

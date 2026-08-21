@@ -75,6 +75,89 @@ func TestClaudeScenarios_HasTexture(t *testing.T) {
 	}
 }
 
+// A tool's result block (the ⎿ line plus its diff/output lines) must reveal
+// as one atomic group, not line by line: in scenario 1's active turn, the
+// group after "Update(cache_test.go)" must bundle the "Updated..." result
+// line together with all 3 diff lines.
+func TestClaudeGroupLines_ResultBlockIsAtomic(t *testing.T) {
+	active := claudeScenarios[0].active
+	groups := claudeGroupLines(active)
+
+	// active[0] = Update(cache_test.go) tool call -> its own group.
+	// active[1..4] = toolRes + 3 diff lines -> one atomic group.
+	if len(groups) < 2 {
+		t.Fatalf("expected at least 2 groups, got %d", len(groups))
+	}
+	if len(groups[0]) != 1 || groups[0][0].kind != cToolCall {
+		t.Fatalf("group 0: want [cToolCall], got %v", groups[0])
+	}
+	want := []cKind{cToolRes, cDiffDel, cDiffAdd, cDiffAdd}
+	if len(groups[1]) != len(want) {
+		t.Fatalf("group 1: want %d lines (result + 3 diffs), got %d: %v", len(want), len(groups[1]), groups[1])
+	}
+	for i, k := range want {
+		if groups[1][i].kind != k {
+			t.Errorf("group 1 line %d: want kind %v, got %v", i, k, groups[1][i].kind)
+		}
+	}
+
+	// Reveal step-by-step: revealing through group 0 shows only the tool
+	// call; the NEXT step must reveal the result line and all 3 diff lines
+	// together (4 more lines at once), not one at a time.
+	afterGroup0 := revealLineCount(active, 1)
+	afterGroup1 := revealLineCount(active, 2)
+	if afterGroup0 != 1 {
+		t.Errorf("after group 0: want 1 line revealed, got %d", afterGroup0)
+	}
+	if got := afterGroup1 - afterGroup0; got != 4 {
+		t.Errorf("group 1 step: want 4 lines revealed at once (result + 3 diffs), got %d", got)
+	}
+}
+
+// A blank line attaches to the group that follows it, so the blank and its
+// following block reveal together in a single step.
+func TestClaudeGroupLines_BlankAttachesToFollowingGroup(t *testing.T) {
+	active := []cLine{
+		{cToolCall, "Bash(go test ./...)"},
+		{cOut, "ok"},
+		{cBlank, ""},
+		{cAsst, "Done."},
+	}
+	groups := claudeGroupLines(active)
+	if len(groups) != 3 {
+		t.Fatalf("want 3 groups (tool call / result / blank+asst), got %d: %v", len(groups), groups)
+	}
+	last := groups[2]
+	if len(last) != 2 || last[0].kind != cBlank || last[1].kind != cAsst {
+		t.Fatalf("last group: want [cBlank, cAsst], got %v", last)
+	}
+	// The step that reveals the final group must reveal both the blank and
+	// the assistant line together, not the blank alone first.
+	beforeLast := revealLineCount(active, 2)
+	afterLast := revealLineCount(active, 3)
+	if got := afterLast - beforeLast; got != 2 {
+		t.Errorf("final step: want 2 lines revealed at once (blank + asst), got %d", got)
+	}
+}
+
+// A trailing blank with nothing after it attaches to the previous group
+// instead of forming its own (empty-looking) group.
+func TestClaudeGroupLines_TrailingBlankAttachesToPreviousGroup(t *testing.T) {
+	active := []cLine{
+		{cToolCall, "Read(fetch.go)"},
+		{cToolRes, "Read 88 lines"},
+		{cBlank, ""},
+	}
+	groups := claudeGroupLines(active)
+	if len(groups) != 2 {
+		t.Fatalf("want 2 groups, got %d: %v", len(groups), groups)
+	}
+	last := groups[1]
+	if len(last) != 2 || last[0].kind != cToolRes || last[1].kind != cBlank {
+		t.Fatalf("last group: want [cToolRes, cBlank], got %v", last)
+	}
+}
+
 // recordingRenderer captures drawn text so render output can be inspected.
 type recordingRenderer struct {
 	w, h int
