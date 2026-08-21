@@ -16,15 +16,13 @@ type mockCell struct {
 // MockScreen is a mock implementation of tcell.Screen for testing
 type MockScreen struct {
 	tcell.Screen
-	cells map[int]map[int]rune
-	sty   map[int]map[int]mockCell
+	cells map[int]map[int]mockCell
 	w, h  int
 }
 
 func NewMockScreen(w, h int) *MockScreen {
 	return &MockScreen{
-		cells: make(map[int]map[int]rune),
-		sty:   make(map[int]map[int]mockCell),
+		cells: make(map[int]map[int]mockCell),
 		w:     w,
 		h:     h,
 	}
@@ -32,19 +30,15 @@ func NewMockScreen(w, h int) *MockScreen {
 
 func (m *MockScreen) SetContent(x, y int, mainc rune, combc []rune, style tcell.Style) {
 	if m.cells[y] == nil {
-		m.cells[y] = make(map[int]rune)
+		m.cells[y] = make(map[int]mockCell)
 	}
-	m.cells[y][x] = mainc
-	if m.sty[y] == nil {
-		m.sty[y] = make(map[int]mockCell)
-	}
-	m.sty[y][x] = mockCell{r: mainc, style: style}
+	m.cells[y][x] = mockCell{r: mainc, style: style}
 }
 
 // Cell returns the rune and style last written at (x, y). A position never
 // written returns the zero rune and tcell.StyleDefault.
 func (m *MockScreen) Cell(x, y int) (rune, tcell.Style) {
-	if row, ok := m.sty[y]; ok {
+	if row, ok := m.cells[y]; ok {
 		if c, ok := row[x]; ok {
 			return c.r, c.style
 		}
@@ -98,8 +92,8 @@ func TestTypingRenderer_Draw_Padding(t *testing.T) {
 	for y := 0; y < height; y++ {
 		if row, ok := mockScreen.cells[y]; ok {
 			for x := width - 3; x < width; x++ {
-				if char, exists := row[x]; exists && char != ' ' && char != 0 {
-					t.Errorf("Found character '%c' at (%d, %d), expected padding", char, x, y)
+				if c, exists := row[x]; exists && c.r != ' ' && c.r != 0 {
+					t.Errorf("Found character '%c' at (%d, %d), expected padding", c.r, x, y)
 				}
 			}
 		}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -103,16 +102,7 @@ func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 // chartOptionsFor maps a config style code onto chart options. Unknown
 // codes fall back to the default so an edited config never breaks startup.
 func chartOptionsFor(code string) chart.Options {
-	o := chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 2}
-	switch code {
-	case "braille1":
-		o.Thickness = 1
-	case "braille3":
-		o.Thickness = 3
-	case "box":
-		o.Style, o.Thickness = chart.StyleBox, 1
-	}
-	return o
+	return chartStyles[styleIdxFor(code)].opts
 }
 
 // selection is everything the menu picks: the theme (and its registry name,
@@ -136,126 +126,50 @@ func indexOf(n int, match func(int) bool) int {
 	return 0
 }
 
-func selectTheme(s tcell.Screen, events <-chan tcell.Event, cfg store.Config, st *store.Store) (selection, error) {
-	var themeNames []string
-	for name := range themes.Themes {
-		themeNames = append(themeNames, name)
-	}
-	// cozy leads (the default), log keeps second place, the rest follow
-	// alphabetically.
-	rank := func(name string) int {
-		switch name {
-		case "cozy":
-			return 0
-		case "log":
-			return 1
-		}
-		return 2
-	}
-	sort.Slice(themeNames, func(i, j int) bool {
-		if ri, rj := rank(themeNames[i]), rank(themeNames[j]); ri != rj {
-			return ri < rj
-		}
-		return themeNames[i] < themeNames[j]
-	})
-
-	// Start from the remembered selections; zero-value config lands on 0s.
-	selectedIndex := indexOf(len(themeNames), func(i int) bool { return themeNames[i] == cfg.Theme })
-	modeIndex := indexOf(len(gameModes), func(i int) bool { return store.ModeString(gameModes[i].limit) == cfg.Mode })
-	srcIndex := indexOf(len(textSources), func(i int) bool { return textSources[i].code == cfg.Source })
-	langIndex := indexOf(len(languages), func(i int) bool { return languages[i].code == cfg.Lang })
-	graphOn := cfg.GraphAuto()
-
+// runMenu is the menu ↔ settings/history hub. It returns the round
+// selection on Enter, or an error when the player quits.
+func runMenu(s tcell.Screen, events <-chan tcell.Event, cfg *store.Config, st *store.Store) (selection, error) {
+	m := newMenuModel(cfg.Theme)
 	for {
-		s.Clear()
-		drawText(s, 2, 1, tcell.StyleDefault.Bold(true), "Select a theme:")
-
-		for i, name := range themeNames {
-			style := tcell.StyleDefault
-			if i == selectedIndex {
-				style = style.Reverse(true)
-			}
-			drawText(s, 4, 3+i, style, name)
-		}
-
-		gl := ui.Glyphs()
-		w, _ := s.Size()
-		modeRow := 3 + len(themeNames) + 1
-		drawText(s, 2, modeRow, tcell.StyleDefault.Foreground(tcell.ColorYellow),
-			"Mode: "+gameModes[modeIndex].name)
-		drawText(s, 2, modeRow+1, tcell.StyleDefault.Foreground(tcell.ColorGreen),
-			"Text: "+textSources[srcIndex].name)
-		// The words pool is English-only, so the language row pins to English
-		// while Words is selected.
-		langLabel := "Language: " + languages[langIndex].name
-		if textSources[srcIndex].code == "words" {
-			langLabel = "Language: English"
-		}
-		drawText(s, 2, modeRow+2, tcell.StyleDefault.Foreground(tcell.ColorTeal), langLabel)
-		graphLabel := "Graph: On"
-		if !graphOn {
-			graphLabel = "Graph: Off"
-		}
-		drawText(s, 2, modeRow+3, tcell.StyleDefault.Foreground(tcell.ColorPurple), graphLabel)
-
-		// Pick the widest help line that fits the terminal.
-		sep := " " + gl.Sep + " "
-		full := strings.Join([]string{
-			gl.ArrowUD + " theme", "Tab mode", "Space text", gl.ArrowLR + " language",
-			"g graph", "h history", gl.Enter + " start", "Esc quit",
-		}, sep)
-		compact := strings.Join([]string{gl.ArrowUD + " theme", "Tab mode", "Space text"}, " ")
-		help := full
-		if runewidth.StringWidth(help) > w-2 {
-			help = compact
-		}
-		if runewidth.StringWidth(help) > w-2 {
-			help = gl.Enter + " start"
-		}
-		drawText(s, 2, modeRow+5, tcell.StyleDefault.Foreground(tcell.ColorGray), help)
-		s.Show()
-
-		ev := <-events
-		switch ev := ev.(type) {
+		drawMenu(s, m, summaryLine(*cfg))
+		switch ev := (<-events).(type) {
 		case nil:
 			return selection{}, fmt.Errorf("screen closed")
 		case *tcell.EventResize:
 			s.Sync()
 		case *tcell.EventKey:
-			switch ev.Key() {
-			case tcell.KeyEscape, tcell.KeyCtrlC:
-				return selection{}, fmt.Errorf("theme selection cancelled")
-			case tcell.KeyUp:
-				if selectedIndex > 0 {
-					selectedIndex--
-				}
-			case tcell.KeyDown:
-				if selectedIndex < len(themeNames)-1 {
-					selectedIndex++
-				}
-			case tcell.KeyTab:
-				modeIndex = (modeIndex + 1) % len(gameModes)
-			case tcell.KeyLeft, tcell.KeyRight:
-				if textSources[srcIndex].code != "words" {
-					langIndex = (langIndex + 1) % len(languages)
-				}
-			case tcell.KeyRune:
-				switch ev.Rune() {
-				case ' ':
-					srcIndex = (srcIndex + 1) % len(textSources)
-				case 'g', 'G':
-					graphOn = !graphOn
-				case 'h', 'H':
-					showHistory(s, events, st.LoadHistory())
-				}
-			case tcell.KeyEnter:
-				name := themeNames[selectedIndex]
-				return selection{theme: themes.Themes[name], themeName: name,
-					limit: gameModes[modeIndex].limit, src: textSources[srcIndex],
-					lang: languages[langIndex], graphOn: graphOn}, nil
+			switch m.handleKey(ev) {
+			case actQuit:
+				return selection{}, fmt.Errorf("menu cancelled")
+			case actSettings:
+				runSettings(s, events, cfg, st)
+			case actHistory:
+				showHistory(s, events, st.LoadHistory())
+			case actStart:
+				name := m.themes[m.idx]
+				sm := newSettingsModel(*cfg)
+				return selection{
+					theme:     themes.Themes[name],
+					themeName: name,
+					limit:     gameModes[sm.modeIdx].limit,
+					src:       textSources[sm.srcIdx],
+					lang:      languages[sm.langIdx],
+					graphOn:   cfg.GraphAuto(),
+				}, nil
 			}
 		}
 	}
+}
+
+// summaryLine is the read-only settings recap under the carousel.
+func summaryLine(cfg store.Config) string {
+	sm := newSettingsModel(cfg)
+	lang := languages[sm.langIdx].name
+	if textSources[sm.srcIdx].code == "words" {
+		lang = "English"
+	}
+	sep := " " + ui.Glyphs().Sep + " "
+	return gameModes[sm.modeIdx].name + sep + textSources[sm.srcIdx].name + sep + lang
 }
 
 func main() {
@@ -307,18 +221,13 @@ func main() {
 	cfg := st.LoadConfig()
 	ui.SetChartOptions(chartOptionsFor(cfg.ChartStyle()))
 	for {
-		sel, err := selectTheme(s, events, cfg, st)
+		sel, err := runMenu(s, events, &cfg, st)
 		if err != nil {
 			return // menu cancelled; the deferred Fini restores the terminal
 		}
 
-		// Remember the selections for the next launch.
-		cfg.Theme, cfg.Mode = sel.themeName, store.ModeString(sel.limit)
-		cfg.Source, cfg.Lang = sel.src.code, sel.lang.code
-		cfg.Graph = "on"
-		if !sel.graphOn {
-			cfg.Graph = "off"
-		}
+		// Settings save on change; only the theme needs saving here.
+		cfg.Theme = sel.themeName
 		st.SaveConfig(cfg)
 
 		// The words source replaces the sentence pool with a generated stream:

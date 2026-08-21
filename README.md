@@ -47,12 +47,8 @@ termtype
 The menu opens on the `cozy` theme and remembers your selections for the
 next launch:
 
-- `↑`/`↓` — theme
-- `Tab` — mode: Normal, or Time Attack (15s / 30s / 60s)
-- `Space` — text: built-in sentences, or a stream of common English words
-- `←`/`→` — language: English or Korean (한국어; the words stream is
-  English-only for now)
-- `g` — result graph on/off
+- `←`/`→` — theme; `↓` unfolds the full theme list
+- `s` — settings: mode, text source, language, result graph, graph style
 - `h` — history browser
 - `Enter` — start, `Esc` — quit
 
@@ -65,8 +61,11 @@ Attack) sits in the top-right corner on every theme. `Ctrl-P` pauses,
 TermType samples your WPM once a second. When a round ends, a
 WPM-over-time graph pops up with an accuracy/raw/cpm summary; `g` toggles
 back to the theme's own result screen. The `cozy` theme draws the chart
-right on its result screen instead. Turn the automatic graph off from the
-menu (`g` — `Graph: Off`) and it stays on the `g` key only.
+right on its result screen instead. Turn the automatic graph off from
+settings (`s` — `Graph: Off`) and it stays on the `g` key only.
+
+Pick the curve's look in settings (`s` — `Style`): a braille wave at 1–3px
+thickness, or a solid box-drawing line.
 
 ## History & personal bests
 

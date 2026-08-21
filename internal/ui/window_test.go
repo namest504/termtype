@@ -59,9 +59,9 @@ func TestDrawWindowsLongTargets(t *testing.T) {
 		t.Fatalf("Draw returned %d rows, want the 3-line window", rows)
 	}
 	for y := 3; y < 12; y++ {
-		for x, ch := range mock.cells[y] {
-			if ch != ' ' && ch != 0 {
-				t.Fatalf("content %q at (%d,%d) below the window", ch, x, y)
+		for x, c := range mock.cells[y] {
+			if c.r != ' ' && c.r != 0 {
+				t.Fatalf("content %q at (%d,%d) below the window", c.r, x, y)
 			}
 		}
 	}
