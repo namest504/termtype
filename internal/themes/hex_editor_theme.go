@@ -49,7 +49,7 @@ func (t *HexTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) 
 	winStart := t.drawTarget(renderer, gs, state, h)
 
 	if gs.IsFinished {
-		t.drawResult(renderer, gs, h)
+		t.drawResult(renderer, gs, state, h)
 	} else {
 		t.drawCursor(renderer, gs, state, winStart)
 	}
@@ -171,10 +171,41 @@ func (t *HexTheme) drawCursor(renderer domain.Renderer, gs *domain.GameState, st
 	renderer.ShowCursor(62+byteIdx%16, state.StartLine+row)
 }
 
-func (t *HexTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, h int) {
+// drawResult writes the round's stats INTO the dump as real encoded rows:
+// the stat string's UTF-8 bytes appear in the hex columns and the string in
+// the ascii gutter, highlighted, right below the target rows.
+func (t *HexTheme) drawResult(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState, h int) {
 	renderer.HideCursor()
-	resultText := ui.ResultText(gs)
-	renderer.DrawText(0, h-1, tcell.StyleDefault, resultText)
+	statStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
+
+	stats := []byte(ui.ResultText(gs))
+	targetRows := (len([]byte(gs.TargetSentence)) + 15) / 16
+	startRow := state.StartLine + targetRows + 1 // one blank dump row of breathing room
+
+	for r := 0; r*16 < len(stats); r++ {
+		y := startRow + r
+		if y >= h {
+			break
+		}
+		chunk := stats[r*16 : min(len(stats), r*16+16)]
+		// clear the whole dump row first so no background bytes bleed through
+		for x := 0; x < 62+16; x++ {
+			renderer.SetContent(x, y, ' ', tcell.StyleDefault)
+		}
+		renderer.DrawText(0, y, addrStyle, fmt.Sprintf("%08x", (startRow+r)*16))
+		hexStr, asciiStr := "", ""
+		for _, b := range chunk {
+			hexStr += fmt.Sprintf("%02x ", b)
+			if b >= 32 && b <= 126 {
+				asciiStr += string(rune(b))
+			} else {
+				asciiStr += "."
+			}
+		}
+		renderer.DrawText(10, y, statStyle, hexStr)
+		renderer.DrawText(62, y, statStyle, asciiStr)
+	}
 }
 
 // OnTick flips a few background bytes, like memory being written.
