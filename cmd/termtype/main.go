@@ -12,6 +12,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
 	"github.com/namest504/termtype/internal/app"
+	"github.com/namest504/termtype/internal/chart"
 	"github.com/namest504/termtype/internal/domain"
 	"github.com/namest504/termtype/internal/store"
 	"github.com/namest504/termtype/internal/themes"
@@ -97,6 +98,21 @@ func drawText(s tcell.Screen, x, y int, style tcell.Style, text string) {
 		s.SetContent(col, y, r, nil, style)
 		col += runewidth.RuneWidth(r)
 	}
+}
+
+// chartOptionsFor maps a config style code onto chart options. Unknown
+// codes fall back to the default so an edited config never breaks startup.
+func chartOptionsFor(code string) chart.Options {
+	o := chart.Options{Style: chart.StyleBraille, Interp: chart.InterpSmooth, Thickness: 2}
+	switch code {
+	case "braille1":
+		o.Thickness = 1
+	case "braille3":
+		o.Thickness = 3
+	case "box":
+		o.Style, o.Thickness = chart.StyleBox, 1
+	}
+	return o
 }
 
 // selection is everything the menu picks: the theme (and its registry name,
@@ -289,6 +305,7 @@ func main() {
 	// Ctrl-C anywhere) leaves the program.
 	st := store.Default()
 	cfg := st.LoadConfig()
+	ui.SetChartOptions(chartOptionsFor(cfg.ChartStyle()))
 	for {
 		sel, err := selectTheme(s, events, cfg, st)
 		if err != nil {
