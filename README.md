@@ -5,8 +5,7 @@ Typing practice in your terminal.
 ![TermType — the cozy theme](docs/termtype-cozy.gif)
 
 - **Seven themes** — from a warm minimal screen (`cozy`, the default) to a
-  log stream, a Matrix rain, a git diff, a hex editor, and a live Claude
-  Code session.
+  log stream, a Matrix rain, a hex editor, and a live Claude Code session.
 - **Sentences or words** — the built-in sentence pool, or a random stream
   of common English words.
 - **Normal and Time Attack** — untimed rounds, or a 15/30/60-second race.
@@ -103,7 +102,6 @@ It is auto-enabled for non-UTF-8 locales, or force it with
 - `simple` — a plain, clean screen.
 - `matrix` — green rain, inspired by The Matrix.
 - `hex` — mimics a hex editor.
-- `diff` — looks like a git diff.
 - `claude` — composing a message in a live Claude Code session.
 - `tutor` — a touch-typing tutor: a finger-zone-colored keyboard with the
   next key highlighted, and a pair of hands pointing at the finger to use.

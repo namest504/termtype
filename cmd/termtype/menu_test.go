@@ -97,3 +97,10 @@ func TestRestoresSavedTheme(t *testing.T) {
 		t.Fatalf("idx = %d, want %d (saved theme not restored)", got, want)
 	}
 }
+
+func TestRemovedThemeFallsBackToCozy(t *testing.T) {
+	m := newMenuModel("diff") // 구버전 config에 남아 있을 수 있는 값
+	if got := m.themes[m.idx]; got != "cozy" {
+		t.Errorf("removed theme should fall back to cozy, got %q", got)
+	}
+}
