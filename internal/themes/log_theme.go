@@ -15,11 +15,11 @@ import (
 var logLevels = []string{"INFO", "WARN", "DEBUG", "ERROR"}
 var sources = []string{"auth-service", "api-gateway", "db-connector", "cache-worker", "metrics-agent"}
 
-func formatAsLogLine(sentence string) (string, string, string) {
-	ts := time.Now().Format("2006-01-02T15:04:05Z")
+func formatAsLogLine(ts time.Time, sentence string) (string, string, string) {
+	tsStr := ts.Format("2006-01-02T15:04:05Z")
 	level := logLevels[rand.Intn(len(logLevels))]
 	source := sources[rand.Intn(len(sources))]
-	prefix := fmt.Sprintf("[%s] [%s] [%s] ", ts, level, source)
+	prefix := fmt.Sprintf("[%s] [%s] [%s] ", tsStr, level, source)
 	return prefix + sentence, prefix, sentence
 }
 
@@ -50,7 +50,7 @@ func (t *LogTheme) ResetState(gs *domain.GameState) {
 	gs.CustomState = logState
 
 	selectedSentence := gs.RandomSentence()
-	fullLog, prefix, sentence := formatAsLogLine(selectedSentence)
+	fullLog, prefix, sentence := formatAsLogLine(time.Now(), selectedSentence)
 
 	logState.targetLogLine = fullLog
 	logState.logPrefix = prefix
@@ -91,9 +91,21 @@ func (t *LogTheme) drawBackgroundLogs(renderer domain.Renderer, gs *domain.GameS
 	if numLogs < 0 {
 		numLogs = 0
 	}
-	for len(logState.backgroundLogs) < numLogs {
-		newLog, _, _ := formatAsLogLine(gs.RandomPoolSentence())
-		logState.backgroundLogs = append([]string{newLog}, logState.backgroundLogs...)
+	if needed := numLogs - len(logState.backgroundLogs); needed > 0 {
+		now := time.Now()
+		newLines := make([]string, needed)
+		// Stagger each newly generated line into the past, oldest at the top
+		// and closest to now at the bottom, so the log reads as a stream of
+		// events rather than a wall of identical timestamps. Offsets
+		// accumulate from the bottom up so timestamps stay monotonically
+		// increasing top to bottom.
+		var offset time.Duration
+		for i := needed - 1; i >= 0; i-- {
+			offset += time.Duration(3+rand.Intn(20)) * time.Second
+			newLog, _, _ := formatAsLogLine(now.Add(-offset), gs.RandomPoolSentence())
+			newLines[i] = newLog
+		}
+		logState.backgroundLogs = append(newLines, logState.backgroundLogs...)
 	}
 	if len(logState.backgroundLogs) > numLogs {
 		logState.backgroundLogs = logState.backgroundLogs[len(logState.backgroundLogs)-numLogs:]
@@ -143,11 +155,12 @@ func (t *LogTheme) drawResultLine(renderer domain.Renderer, gs *domain.GameState
 	renderer.HideCursor()
 	renderer.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
 
-	resultLog := fmt.Sprintf("[%s] [DEBUG] [metrics-agent] Round finished. WPM: %.2f, Accuracy: %.2f%%", time.Now().Format("2006-01-02T15:04:05Z"), gs.WPM, gs.Accuracy)
-	renderer.DrawText(1, targetY+1, getStyleForLogLevel("DEBUG"), resultLog)
-
-	guideText := "Press Enter for the next round, Esc for the menu."
-	renderer.DrawText(1, targetY+3, tcell.StyleDefault, guideText)
+	now := time.Now().Format("2006-01-02T15:04:05Z")
+	line1 := fmt.Sprintf("[%s] [INFO] [typing-daemon] session complete — %.0f wpm, %.1f%% acc, %.0fs",
+		now, gs.WPM, gs.Accuracy, gs.FinalDurS)
+	line2 := fmt.Sprintf("[%s] [INFO] [typing-daemon] process exited (0)", now)
+	renderer.DrawText(1, targetY+1, getStyleForLogLevel("INFO"), line1)
+	renderer.DrawText(1, targetY+2, getStyleForLogLevel("INFO"), line2)
 }
 
 // OnTick gives the LogTheme a real-time scrolling effect.
@@ -162,8 +175,8 @@ func (t *LogTheme) OnTick(gs *domain.GameState) {
 		return
 	}
 
-	// Append a new log and remove the oldest one.
-	newLog, _, _ := formatAsLogLine(gs.RandomPoolSentence())
+	// Append a new log (stamped with the current time) and remove the oldest one.
+	newLog, _, _ := formatAsLogLine(time.Now(), gs.RandomPoolSentence())
 	logState.backgroundLogs = append(logState.backgroundLogs[1:], newLog)
 }
 
