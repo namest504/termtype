@@ -19,12 +19,22 @@ type Config struct {
 	Lang   string `json:"lang"`
 	Source string `json:"source"`          // "builtin" | "words"
 	Graph  string `json:"graph,omitempty"` // "" or "on" = auto result graph; "off" = manual (g key)
+	Style  string `json:"style,omitempty"` // result-graph style; see Config.ChartStyle
 	Ghost  bool   `json:"ghost"`
 }
 
 // GraphAuto reports whether the result graph should show automatically
 // after a round. It defaults to on.
 func (c Config) GraphAuto() bool { return c.Graph != "off" }
+
+// ChartStyle returns the configured result-graph style, defaulting to the
+// 2px braille spline. Values: "braille1" | "braille2" | "braille3" | "box".
+func (c Config) ChartStyle() string {
+	if c.Style == "" {
+		return "braille2"
+	}
+	return c.Style
+}
 
 // Round is one finished typing round — one line in history.jsonl. The
 // RawWPM/CPM/WPMSeries fields were added later and are absent from older

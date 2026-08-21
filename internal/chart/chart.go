@@ -67,9 +67,11 @@ var brailleBits = [4][2]int{{0x01, 0x08}, {0x02, 0x10}, {0x04, 0x20}, {0x40, 0x8
 const labelW = 4
 
 // sample maps series onto n points. InterpLinear draws straight segments
-// between samples; InterpSmooth is added with the style work (PR-2) and
-// falls back to linear until then.
+// between samples; InterpSmooth uses monotone cubic interpolation.
 func sample(series []float64, n int, ip Interp) []float64 {
+	if ip == InterpSmooth && len(series) >= 3 {
+		return monotoneCubic(series, n)
+	}
 	out := make([]float64, n)
 	for c := 0; c < n; c++ {
 		pos := float64(c) * float64(len(series)-1) / float64(n-1)
@@ -138,6 +140,8 @@ func Render(series []float64, o Options) [][]Cell {
 	switch o.Style {
 	case StyleASCII:
 		renderASCII(grid, series, cols, o.Height)
+	case StyleBox:
+		renderBox(grid, series, cols, o, lo, hi)
 	default:
 		renderBraille(grid, series, cols, o, lo, hi)
 	}
@@ -151,10 +155,23 @@ func Render(series []float64, o Options) [][]Cell {
 // smoothed away, so scaling against the sample's own bounds would diverge
 // from what the axis reports.
 func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi float64) {
-	pxRows := pixelRows(sample(series, cols*2, o.Interp), o.Height*4, lo, hi)
+	thick := o.Thickness
+	if thick < 1 {
+		thick = 1
+	}
+	if thick > 3 {
+		thick = 3
+	}
+	pxTotal := o.Height * 4
+	pxRows := pixelRows(sample(series, cols*2, o.Interp), pxTotal, lo, hi)
 	masks := make([][]int, o.Height)
 	for i := range masks {
 		masks[i] = make([]int, cols)
+	}
+	set := func(py, c int) {
+		if py >= 0 && py < pxTotal {
+			masks[py/4][c/2] |= brailleBits[py%4][c%2]
+		}
 	}
 	prev := pxRows[0]
 	for c, row := range pxRows {
@@ -167,7 +184,9 @@ func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi 
 			}
 		}
 		for py := lo; py <= hi; py++ {
-			masks[py/4][c/2] |= brailleBits[py%4][c%2]
+			for t := 0; t < thick; t++ {
+				set(py+t, c)
+			}
 		}
 		prev = row
 	}
@@ -177,6 +196,38 @@ func renderBraille(grid [][]Cell, series []float64, cols int, o Options, lo, hi 
 				grid[cy][labelW+1+cx] = Cell{Rune: rune(0x2800 + mask), Kind: KindLine}
 			}
 		}
+	}
+}
+
+// renderBox draws a cell-resolution solid line with rounded corners:
+// ─ for level runs, ╮╰ going down, ╯╭ going up, │ filling steep drops.
+// lo, hi are the TRUE series bounds (matching the axis labels), NOT the
+// bounds of the downsampled array — see renderBraille for why.
+func renderBox(grid [][]Cell, series []float64, cols int, o Options, lo, hi float64) {
+	vals := sample(series, cols, o.Interp)
+	rows := pixelRows(vals, o.Height, lo, hi)
+	put := func(y, c int, r rune) {
+		grid[y][labelW+1+c] = Cell{Rune: r, Kind: KindLine}
+	}
+	prev := rows[0]
+	for c, row := range rows {
+		switch {
+		case c == 0 || row == prev:
+			put(row, c, '─')
+		case row < prev: // going up
+			put(prev, c, '╯')
+			put(row, c, '╭')
+			for r := row + 1; r < prev; r++ {
+				put(r, c, '│')
+			}
+		default: // going down
+			put(prev, c, '╮')
+			put(row, c, '╰')
+			for r := prev + 1; r < row; r++ {
+				put(r, c, '│')
+			}
+		}
+		prev = row
 	}
 }
 
