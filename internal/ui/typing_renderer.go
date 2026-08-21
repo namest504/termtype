@@ -86,26 +86,20 @@ func (tr *TypingRenderer) Draw(renderer domain.Renderer, gs *domain.GameState, o
 			currentInputIdx := inputOffset + charIdx
 
 			// Determine the style.
-			style := tcell.StyleDefault.Foreground(tcell.ColorWhite)
-			if opts.CenterText {
-				style = style.Background(tcell.ColorBlack)
-			} else {
+			style := tcell.StyleDefault
+			if !opts.CenterText {
 				style = tcell.StyleDefault.Foreground(tcell.ColorGray)
 			}
 
 			if currentInputIdx < len(inputRunes) {
 				if inputRunes[currentInputIdx] == r {
 					if opts.CenterText {
-						style = tcell.StyleDefault.Foreground(tcell.ColorLawnGreen).Background(tcell.ColorBlack)
+						style = tcell.StyleDefault.Foreground(tcell.ColorLawnGreen)
 					} else {
 						style = tcell.StyleDefault.Foreground(tcell.ColorGreen)
 					}
 				} else {
-					if opts.CenterText {
-						style = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
-					} else {
-						style = tcell.StyleDefault.Foreground(tcell.ColorRed)
-					}
+					style = tcell.StyleDefault.Foreground(tcell.ColorRed)
 				}
 			}
 

@@ -45,6 +45,10 @@ const (
 	cAsst
 	cToolCall // ⏺ Name(args) — a tool invocation
 	cToolRes  // ⎿ result line under a call
+	cBlank    // blank line — draws nothing, spacing between blocks
+	cDiffDel  // diff removal line: "12 -  old code" — line number dim, rest red
+	cDiffAdd  // diff addition line: "12 +  new code" — line number dim, rest green
+	cOut      // Bash output dump line — faint, indented under a Bash(...) call
 )
 
 type cLine struct {
@@ -62,54 +66,72 @@ type claudeScenario struct {
 var claudeScenarios = []claudeScenario{
 	{
 		history: []cLine{
-			{cHuman, "split the monolith handler into smaller functions"},
-			{cAsst, "I'll extract request parsing and validation first."},
-			{cToolCall, "Read(handler.go)"},
-			{cToolRes, "Read 210 lines (ctrl+o to expand)"},
-			{cToolCall, "Update(handler.go)"},
-			{cToolRes, "Updated handler.go with 96 additions and 120 removals"},
-			{cAsst, "Done - split into parseRequest, validate, and dispatch."},
+			{cHuman, "why is the cache test flaky"},
+			{cBlank, ""},
+			{cAsst, "The TTL assertion races the clock; I'll inject a fake timer."},
+			{cBlank, ""},
+			{cToolCall, "Search(pattern: \"time.Sleep\", path: internal/cache)"},
+			{cToolRes, "Found 3 matches in 2 files"},
 		},
 		active: []cLine{
-			{cAsst, "I'll add graceful shutdown so in-flight work can finish."},
-			{cToolCall, "Update(server.go)"},
-			{cToolRes, "Updated server.go with 38 additions and 6 removals"},
-			{cToolCall, "Bash(go test ./...)"},
-			{cToolRes, "ok - 42 tests passed"},
-			{cAsst, "Done - the server now drains connections on SIGTERM."},
+			{cToolCall, "Update(cache_test.go)"},
+			{cToolRes, "Updated cache_test.go with 2 additions and 1 removal"},
+			{cDiffDel, "12 -  time.Sleep(ttl)"},
+			{cDiffAdd, "12 +  clock.Advance(ttl)"},
+			{cDiffAdd, "13 +  c.Sweep()"},
+			{cBlank, ""},
+			{cToolCall, "Bash(go test ./internal/cache/ -count=20)"},
+			{cOut, "ok   internal/cache  2.41s"},
+			{cOut, "PASS (20 runs, no failures)"},
+			{cBlank, ""},
+			{cAsst, "All green - the test drives a fake clock now."},
 		},
 	},
 	{
 		history: []cLine{
 			{cHuman, "add retry with backoff to the fetcher"},
-			{cAsst, "I'll wrap the client call in a retry loop."},
+			{cBlank, ""},
 			{cToolCall, "Update Todos"},
 			{cToolRes, "TODO_DONE Add retry helper with jitter"},
 			{cToolRes, "TODO_OPEN Make the timeout configurable"},
-			{cAsst, "Done - three attempts with jittered backoff."},
+			{cBlank, ""},
+			{cAsst, "I'll wrap the client call in a retry loop."},
 		},
 		active: []cLine{
-			{cAsst, "I'll make the timeout configurable next."},
-			{cToolCall, "Read(config.go)"},
-			{cToolRes, "Read 54 lines (ctrl+o to expand)"},
-			{cToolCall, "Update(config.go)"},
-			{cToolRes, "Updated config.go with 12 additions and 2 removals"},
-			{cAsst, "Done - FETCH_TIMEOUT now overrides the default."},
+			{cToolCall, "Read(fetch.go)"},
+			{cToolRes, "Read 88 lines (ctrl+o to expand)"},
+			{cBlank, ""},
+			{cToolCall, "Update(fetch.go)"},
+			{cToolRes, "Updated fetch.go with 3 additions and 1 removal"},
+			{cDiffDel, "41 -  resp, err := client.Do(req)"},
+			{cDiffAdd, "41 +  resp, err := retry(3, backoff, func() (*http.Response, error) {"},
+			{cDiffAdd, "42 +      return client.Do(req)"},
+			{cDiffAdd, "43 +  })"},
+			{cBlank, ""},
+			{cAsst, "Done - three attempts with jittered backoff."},
 		},
 	},
 	{
 		history: []cLine{
-			{cHuman, "why is the cache test flaky"},
-			{cAsst, "The TTL assertion races the clock; I'll inject a fake timer."},
-			{cToolCall, "Update(cache_test.go)"},
-			{cToolRes, "Updated cache_test.go with 18 additions and 9 removals"},
-			{cAsst, "Done - the test drives a fake clock now."},
+			{cHuman, "the worker crashed overnight - find out why"},
+			{cBlank, ""},
+			{cToolCall, "Bash(grep -c ERROR /var/log/worker.log)"},
+			{cOut, "217"},
 		},
 		active: []cLine{
-			{cAsst, "I'll run the suite to confirm the flake is gone."},
-			{cToolCall, "Bash(go test ./internal/cache/ -count=20)"},
-			{cToolRes, "ok - 20 runs, no failures"},
-			{cAsst, "All green - want me to check the other suites?"},
+			{cToolCall, "Bash(tail -n 3 /var/log/worker.log)"},
+			{cOut, "02:14:07 ERROR queue: connection reset by peer"},
+			{cOut, "02:14:08 ERROR queue: reconnect failed (attempt 5)"},
+			{cOut, "02:14:08 FATAL worker: giving up after 5 attempts"},
+			{cBlank, ""},
+			{cAsst, "The queue connection dies at 02:14 and retries are capped at 5."},
+			{cBlank, ""},
+			{cToolCall, "Update(worker.go)"},
+			{cToolRes, "Updated worker.go with 1 addition and 1 removal"},
+			{cDiffDel, "58 -  MaxRetries: 5,"},
+			{cDiffAdd, "58 +  MaxRetries: 0, // retry forever with backoff"},
+			{cBlank, ""},
+			{cAsst, "Done - the worker now rides out queue outages."},
 		},
 	},
 }
@@ -122,6 +144,94 @@ func claudeToolCount(active []cLine) int {
 		}
 	}
 	return n
+}
+
+// isResultKind reports whether a line belongs to a tool's result block: the
+// ⎿ summary line plus any diff/output lines under it. In the real CLI these
+// pop in together the instant the tool finishes, so they reveal as one unit.
+func isResultKind(k cKind) bool {
+	switch k {
+	case cToolRes, cDiffDel, cDiffAdd, cOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// claudeGroupLines partitions active into reveal groups: a maximal
+// consecutive run of result-kind lines (cToolRes/cDiffDel/cDiffAdd/cOut) is
+// one atomic group (a tool's whole result block), and every other line
+// (cHuman/cAsst/cToolCall) is its own group. A cBlank line attaches to the
+// group that follows it (so spacing appears together with the next block);
+// a trailing cBlank with nothing after it attaches to the previous group.
+// A cBlank also always starts a new group boundary, even between two
+// result-kind lines, so it never gets silently absorbed into a result run.
+func claudeGroupLines(active []cLine) [][]cLine {
+	var groups [][]cLine
+	var current []cLine
+	var pendingBlanks []cLine
+	inResultRun := false
+
+	flush := func() {
+		if len(current) > 0 {
+			groups = append(groups, current)
+			current = nil
+		}
+	}
+
+	for _, ln := range active {
+		if ln.kind == cBlank {
+			pendingBlanks = append(pendingBlanks, ln)
+			continue
+		}
+		if isResultKind(ln.kind) && inResultRun && len(pendingBlanks) == 0 {
+			current = append(current, ln)
+			continue
+		}
+		flush()
+		current = append(current, pendingBlanks...)
+		pendingBlanks = nil
+		current = append(current, ln)
+		inResultRun = isResultKind(ln.kind)
+		if !inResultRun {
+			flush()
+		}
+	}
+
+	if len(pendingBlanks) > 0 {
+		if len(current) > 0 {
+			current = append(current, pendingBlanks...)
+		} else if len(groups) > 0 {
+			groups[len(groups)-1] = append(groups[len(groups)-1], pendingBlanks...)
+		} else {
+			current = append(current, pendingBlanks...)
+		}
+	}
+	flush()
+
+	return groups
+}
+
+// groupCount returns how many reveal groups active partitions into.
+func groupCount(active []cLine) int {
+	return len(claudeGroupLines(active))
+}
+
+// revealLineCount returns how many of active's lines are covered by the
+// first n reveal groups (n clamped to [0, groupCount(active)]).
+func revealLineCount(active []cLine, n int) int {
+	groups := claudeGroupLines(active)
+	if n <= 0 {
+		return 0
+	}
+	if n >= len(groups) {
+		return len(active)
+	}
+	count := 0
+	for _, g := range groups[:n] {
+		count += len(g)
+	}
+	return count
 }
 
 func (t *ClaudeTheme) ResetState(gs *domain.GameState) {
@@ -158,7 +268,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	dim := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	faint := tcell.StyleDefault.Foreground(tcell.ColorDarkGray)
-	white := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	white := tcell.StyleDefault
 	orange := tcell.StyleDefault.Foreground(tcell.ColorOrange)
 
 	wrapWidth := (w - 1) - claudePromptWidth - 3
@@ -190,14 +300,18 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	sc := claudeScenarios[st.scen%len(claudeScenarios)]
 
-	// How much of the active (in-progress) turn has streamed in so far.
-	reveal := len(sc.active)
+	// How much of the active (in-progress) turn has streamed in so far, in
+	// whole reveal groups: a tool's whole result block pops in at once,
+	// while every other line streams on its own.
+	totalGroups := groupCount(sc.active)
+	revealGroups := totalGroups
 	if !gs.IsFinished {
-		reveal = st.tick / claudeRevealEvery
-		if reveal > len(sc.active) {
-			reveal = len(sc.active)
+		revealGroups = st.tick / claudeRevealEvery
+		if revealGroups > totalGroups {
+			revealGroups = totalGroups
 		}
 	}
+	reveal := revealLineCount(sc.active, revealGroups)
 
 	convo := make([]cLine, 0, len(sc.history)+reveal)
 	convo = append(convo, sc.history...)
@@ -215,7 +329,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 		prevWasTodo = isTodo
 	}
 
-	t.drawStatus(renderer, gs, st, sc.active, reveal, statusRow, w, orange, faint)
+	t.drawStatus(renderer, gs, st, sc.active, revealGroups, totalGroups, statusRow, w, orange, faint)
 	t.drawBox(renderer, boxTop, boxBottom, w, dim)
 	t.drawInput(renderer, gs, wrapped, boxTop, boxRows, w, orange, dim)
 	t.drawHint(renderer, gs, hintRow, w, dim, faint)
@@ -232,7 +346,25 @@ func isTodoLine(text string) bool {
 func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style, skipBranch bool) {
 	gl := ui.Glyphs()
 	green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	red := tcell.StyleDefault.Foreground(tcell.ColorRed)
 	switch ln.kind {
+	case cBlank:
+		// draws nothing — spacing between blocks
+	case cDiffDel, cDiffAdd:
+		color := red
+		if ln.kind == cDiffAdd {
+			color = green
+		}
+		numStr, rest, ok := strings.Cut(ln.text, " ")
+		if !ok {
+			renderer.DrawText(7, y, color, ui.Truncate(ln.text, w-7))
+			return
+		}
+		renderer.DrawText(7, y, faint, ui.Truncate(numStr, w-7))
+		restX := 7 + runewidth.StringWidth(numStr) + 1
+		renderer.DrawText(restX, y, color, ui.Truncate(rest, w-restX))
+	case cOut:
+		renderer.DrawText(5, y, faint, ui.Truncate(ln.text, w-5))
 	case cHuman:
 		renderer.DrawText(0, y, faint, "> ")
 		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
@@ -260,7 +392,7 @@ func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine
 	}
 }
 
-func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, active []cLine, reveal, statusRow, w int, orange, faint tcell.Style) {
+func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState, st *ClaudeThemeState, active []cLine, revealGroups, totalGroups, statusRow, w int, orange, faint tcell.Style) {
 	if statusRow < 0 {
 		return
 	}
@@ -269,8 +401,8 @@ func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState,
 		renderer.DrawText(0, statusRow, orange, ui.Truncate(gl.AsstDot+" Message sent", w))
 		return
 	}
-	if reveal >= len(active) {
-		doneAt := len(active) * claudeRevealEvery
+	if revealGroups >= totalGroups {
+		doneAt := totalGroups * claudeRevealEvery
 		green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 		edits := claudeToolCount(active)
 		editWord := "edits"
