@@ -365,9 +365,28 @@ func (t *TutorTheme) drawHands(renderer domain.Renderer, w, y, finger int) {
 			artIdx = 4
 		}
 		for _, c := range cells[artIdx] {
-			renderer.SetContent(rx+(handWidth-1-c.dx), y+c.dy, c.r, accent)
+			renderer.SetContent(rx+(handWidth-1-c.dx), y+c.dy, mirrorRune(c.r), accent)
 		}
 	}
+}
+
+// mirrorGlyphs maps direction-sensitive box-drawing (and similar) glyphs to
+// their horizontal mirror image. Glyphs not listed (e.g. '│', '─', '╷') are
+// self-symmetric and pass through unchanged.
+var mirrorGlyphs = map[rune]rune{
+	'╭': '╮', '╮': '╭',
+	'╰': '╯', '╯': '╰',
+	'╱': '╲', '╲': '╱',
+	'<': '>', '>': '<',
+}
+
+// mirrorRune returns the horizontal mirror of a single glyph, or the glyph
+// itself if it has no direction-sensitive counterpart.
+func mirrorRune(r rune) rune {
+	if m, ok := mirrorGlyphs[r]; ok {
+		return m
+	}
+	return r
 }
 
 // mirrorRunes flips a hand row horizontally, swapping the glyphs that have
@@ -375,7 +394,7 @@ func (t *TutorTheme) drawHands(renderer domain.Renderer, w, y, finger int) {
 func mirrorRunes(runes []rune) []rune {
 	out := make([]rune, len(runes))
 	for i, r := range runes {
-		out[len(runes)-1-i] = r
+		out[len(runes)-1-i] = mirrorRune(r)
 	}
 	return out
 }

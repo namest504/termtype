@@ -146,8 +146,10 @@ func TestTutorHandsRounded(t *testing.T) {
 		return r
 	}
 
+	orig := ui.IsASCII()
+	t.Cleanup(func() { ui.SetASCII(orig) })
+
 	ui.SetASCII(false)
-	t.Cleanup(func() { ui.SetASCII(false) })
 	r := render()
 	if !gridContainsRune(r, '╭') {
 		t.Error("Unicode mode should draw rounded hand-art glyphs like '╭'")
@@ -158,6 +160,57 @@ func TestTutorHandsRounded(t *testing.T) {
 	ui.SetASCII(false)
 	if gridContainsRune(r, '╭') {
 		t.Error("ASCII mode should not draw rounded box glyphs")
+	}
+}
+
+// 오른손 아트는 왼손을 단순 반전한 것이 아니라, 방향성 있는 박스 글리프도
+// 좌우가 뒤바뀐 모양이어야 한다 (예: 아랫변 모서리 ╰...╯, 손가락 윗줄 ╭╮).
+func TestTutorRightHandMirrorsGlyphs(t *testing.T) {
+	orig := ui.IsASCII()
+	t.Cleanup(func() { ui.SetASCII(orig) })
+	ui.SetASCII(false)
+
+	theme := &TutorTheme{}
+	w, h := 100, 40
+	gs := &domain.GameState{Sentences: []string{"hello world"}}
+	theme.ResetState(gs)
+	gs.TargetSentence = "hello world"
+	gs.UserInput = ""
+	r := newGridRenderer(w, h)
+	theme.UpdateScreen(r, gs)
+
+	gap := 4
+	lx := (w - (2*handWidth + gap)) / 2
+	rx := lx + handWidth + gap
+
+	// Locate the hand-art bottom row by finding the left hand's (unmirrored)
+	// bottom border, which starts at lx.
+	wantBottom := "╰─────────╯"
+	bottomY := -1
+	for y := 0; y < h; y++ {
+		if lx+handWidth <= len(r.grid[y]) && string(r.grid[y][lx:lx+handWidth]) == wantBottom {
+			bottomY = y
+			break
+		}
+	}
+	if bottomY == -1 {
+		t.Fatal("could not locate hand-art bottom row")
+	}
+
+	if rightBottom := string(r.grid[bottomY][rx : rx+handWidth]); rightBottom != wantBottom {
+		t.Errorf("right hand bottom row = %q, want %q (mirrored corners, not %q)",
+			rightBottom, wantBottom, "╯─────────╰")
+	}
+
+	// The finger-top row is 4 rows above the bottom border in handArtUnicode.
+	topY := bottomY - 4
+	if topY < 0 {
+		t.Fatalf("hand-art top row %d out of range", topY)
+	}
+	rightTop := string(r.grid[topY][rx : rx+handWidth])
+	if !strings.Contains(rightTop, "╭╮╭╮") {
+		t.Errorf("right hand top row = %q, want it to contain %q (not the un-mirrored %q)",
+			rightTop, "╭╮╭╮", "╮╭╮╭")
 	}
 }
 
