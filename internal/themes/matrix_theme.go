@@ -117,7 +117,26 @@ func matrixMaxLines(h, startY int) int {
 	return maxLines
 }
 
+// clearBand blanks rows [top, bottom] so the text sits in a readable
+// clearing instead of on top of the rain.
+func clearBand(renderer domain.Renderer, w, top, bottom, h int) {
+	for y := top; y <= bottom; y++ {
+		if y < 0 || y >= h {
+			continue
+		}
+		for x := 0; x < w; x++ {
+			renderer.SetContent(x, y, ' ', tcell.StyleDefault.Background(tcell.ColorBlack))
+		}
+	}
+}
+
 func (t *MatrixTheme) drawTypingArea(renderer domain.Renderer, gs *domain.GameState, w, h, startY int) {
+	rows := len(ui.WrapText(gs.TargetSentence, w-4))
+	if cap := matrixMaxLines(h, startY); rows > cap {
+		rows = cap
+	}
+	clearBand(renderer, w, startY-1, startY+rows, h)
+
 	tr := &ui.TypingRenderer{}
 	tr.Draw(renderer, gs, ui.TypingRendererOptions{
 		StartY:      startY,
@@ -129,19 +148,19 @@ func (t *MatrixTheme) drawTypingArea(renderer domain.Renderer, gs *domain.GameSt
 }
 
 func (t *MatrixTheme) drawResultArea(renderer domain.Renderer, gs *domain.GameState, w, h, startY int) {
-	// Recompute how many rows the typing window occupied.
-	rows := len(ui.WrapText(gs.TargetSentence, w-4))
-	if cap := matrixMaxLines(h, startY); rows > cap {
-		rows = cap
-	}
-
 	renderer.HideCursor()
-	resultText := ui.ResultText(gs)
-	x := (w - runewidth.StringWidth(resultText)) / 2
-	if x < 0 {
-		x = 0
+	title := "TRACE COMPLETE"
+	stats := ui.ResultText(gs)
+	clearBand(renderer, w, startY-1, startY+3, h)
+	center := func(y int, style tcell.Style, s string) {
+		x := (w - runewidth.StringWidth(s)) / 2
+		if x < 0 {
+			x = 0
+		}
+		renderer.DrawText(x, y, style, ui.Truncate(s, w))
 	}
-	renderer.DrawText(x, startY+rows+1, tcell.StyleDefault.Background(tcell.ColorBlack), resultText)
+	center(startY, tcell.StyleDefault.Foreground(tcell.ColorGreen).Bold(true), title)
+	center(startY+2, tcell.StyleDefault.Foreground(tcell.ColorWhite), stats)
 }
 
 func (t *MatrixTheme) OnTick(gs *domain.GameState) {
