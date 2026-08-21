@@ -132,6 +132,54 @@ func TestHexResultEncodesStats(t *testing.T) {
 	}
 }
 
+// TestHexResultStaysOnScreen is a regression test: with a long target (e.g.
+// a 250-word Time Attack "words" target) or a short terminal, the old
+// drawResult computed startRow from the FULL target length rather than the
+// window drawTarget actually draws, so it could land past h and draw
+// nothing -- the round ended with no visible stats. drawResult must clamp
+// the stat rows onto the screen in both cases.
+func TestHexResultStaysOnScreen(t *testing.T) {
+	longTarget := strings.Repeat("word ", 250)
+	longTarget = strings.TrimSpace(longTarget)
+
+	cases := []struct {
+		name   string
+		w, h   int
+		target string
+	}{
+		{"long target, normal terminal", 100, 24, longTarget},
+		{"short terminal, normal target", 100, 16, "the quick brown fox jumps over the lazy dog"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			theme := &HexTheme{}
+			gs := &domain.GameState{Sentences: []string{c.target}}
+			theme.ResetState(gs)
+			gs.TargetSentence = c.target
+			gs.UserInput = c.target
+			gs.IsFinished = true
+			gs.WPM = 61.2
+			gs.Accuracy = 97.5
+			gs.FinalDurS = 12
+
+			r := newGridRenderer(c.w, c.h)
+			theme.UpdateScreen(r, gs)
+
+			found := false
+			for y := 0; y < c.h && !found; y++ {
+				line := string(r.grid[y])
+				if strings.Contains(line, "wpm") {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("%s: expected the stat text (\"wpm\") to appear somewhere on a %dx%d screen, found nothing", c.name, c.w, c.h)
+			}
+		})
+	}
+}
+
 func TestHexWindow(t *testing.T) {
 	cases := []struct {
 		name               string

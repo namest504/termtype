@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/namest504/termtype/internal/domain"
 	"github.com/namest504/termtype/internal/ui"
 )
@@ -175,7 +176,7 @@ func (t *TutorTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState
 			renderer.DrawText(colX, top+i, tcell.StyleDefault, blank)
 		}
 		result := ui.Truncate(ui.ResultText(gs), colW)
-		rx := colX + (colW-len([]rune(result)))/2
+		rx := colX + (colW-runewidth.StringWidth(result))/2
 		if rx < colX {
 			rx = colX
 		}

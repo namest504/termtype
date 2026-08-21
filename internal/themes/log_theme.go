@@ -78,7 +78,7 @@ func (t *LogTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState) 
 }
 
 func (t *LogTheme) calculateTargetY(h int) int {
-	numLogs := h - 4
+	numLogs := h - 5
 	if numLogs < 0 {
 		numLogs = 0
 	}
@@ -87,7 +87,7 @@ func (t *LogTheme) calculateTargetY(h int) int {
 
 func (t *LogTheme) drawBackgroundLogs(renderer domain.Renderer, gs *domain.GameState, logState *LogThemeState, h int) {
 	// Dynamically adjust the number of log lines to the terminal height.
-	numLogs := h - 4 // reserve space for top margin, target line, result line, etc.
+	numLogs := h - 5 // reserve space for top margin, target line, result lines, etc.
 	if numLogs < 0 {
 		numLogs = 0
 	}
@@ -156,11 +156,13 @@ func (t *LogTheme) drawResultLine(renderer domain.Renderer, gs *domain.GameState
 	renderer.DrawText(1, targetY, tcell.StyleDefault.Foreground(tcell.ColorDimGray), logState.targetLogLine)
 
 	now := time.Now().Format("2006-01-02T15:04:05Z")
-	line1 := fmt.Sprintf("[%s] [INFO] [typing-daemon] session complete — %.0f wpm, %.1f%% acc, %.0fs",
+	line1 := fmt.Sprintf("[%s] [INFO] [typing-daemon] session complete - %.0f wpm, %.1f%% acc, %.0fs",
 		now, gs.WPM, gs.Accuracy, gs.FinalDurS)
 	line2 := fmt.Sprintf("[%s] [INFO] [typing-daemon] process exited (0)", now)
+	line3 := fmt.Sprintf("[%s] [INFO] [typing-daemon] waiting for input - enter: restart, esc: menu", now)
 	renderer.DrawText(1, targetY+1, getStyleForLogLevel("INFO"), line1)
 	renderer.DrawText(1, targetY+2, getStyleForLogLevel("INFO"), line2)
+	renderer.DrawText(1, targetY+3, getStyleForLogLevel("INFO"), line3)
 }
 
 // OnTick gives the LogTheme a real-time scrolling effect.

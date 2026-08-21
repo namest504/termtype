@@ -93,4 +93,7 @@ func TestLogResultLine(t *testing.T) {
 	if strings.Contains(text, "Round finished") {
 		t.Error("expected the old 'Round finished' DEBUG line to be gone")
 	}
+	if !strings.Contains(text, "waiting for input") {
+		t.Error("expected the result screen to contain 'waiting for input' key guidance")
+	}
 }
