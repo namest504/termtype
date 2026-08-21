@@ -26,6 +26,11 @@ type GlyphSet struct {
 	Sep        string // inline separator between fields
 	ChartDot   string // wpm graph: data point
 	ChartTick  string // wpm graph: y-axis tick
+
+	StarSpinner []rune // claude theme: asterisk-morph spinner frames
+	TodoDone    string // claude theme: completed todo checkbox
+	TodoOpen    string // claude theme: pending todo checkbox
+	FastFwd     string // claude theme: accept-edits indicator (2 cells)
 }
 
 var unicodeGlyphs = GlyphSet{
@@ -50,6 +55,11 @@ var unicodeGlyphs = GlyphSet{
 	Sep:        "·",
 	ChartDot:   "●",
 	ChartTick:  "┤",
+
+	StarSpinner: []rune("✢✳✶✻✽✻✶✳"),
+	TodoDone:    "☒",
+	TodoOpen:    "☐",
+	FastFwd:     "⏵⏵",
 }
 
 var asciiGlyphs = GlyphSet{
@@ -74,6 +84,11 @@ var asciiGlyphs = GlyphSet{
 	Sep:        "-",
 	ChartDot:   "*",
 	ChartTick:  "|",
+
+	StarSpinner: []rune(`|/-\`),
+	TodoDone:    "[x]",
+	TodoOpen:    "[ ]",
+	FastFwd:     ">>",
 }
 
 var useASCII bool

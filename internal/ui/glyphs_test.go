@@ -25,3 +25,17 @@ func TestGlyphs_Toggle(t *testing.T) {
 		t.Errorf("ascii BoxV must be one rune, got %q", Glyphs().BoxV)
 	}
 }
+
+func TestGlyphs_NewClaudeGlyphs(t *testing.T) {
+	SetASCII(false)
+	g := Glyphs()
+	if len(g.StarSpinner) == 0 || g.TodoDone == "" || g.TodoOpen == "" || g.FastFwd == "" {
+		t.Fatalf("unicode glyph set missing new fields: %+v", g)
+	}
+	SetASCII(true)
+	defer SetASCII(false)
+	a := Glyphs()
+	if len(a.StarSpinner) == 0 || a.TodoDone != "[x]" || a.TodoOpen != "[ ]" {
+		t.Fatalf("ascii fallback wrong: %+v", a)
+	}
+}

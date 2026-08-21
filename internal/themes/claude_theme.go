@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/namest504/termtype/internal/domain"
 	"github.com/namest504/termtype/internal/ui"
 )
@@ -26,7 +27,11 @@ type ClaudeTheme struct{}
 type ClaudeThemeState struct {
 	tick int
 	scen int // index into claudeScenarios for this round
+	verb int // index into claudeVerbs for this round's spinner label
 }
+
+// claudeVerbs are the whimsical gerunds the spinner cycles between rounds.
+var claudeVerbs = []string{"Pondering", "Wrangling", "Brewing", "Musing", "Cerebrating", "Vibing"}
 
 const claudePromptWidth = 3
 
@@ -38,7 +43,8 @@ type cKind int
 const (
 	cHuman cKind = iota
 	cAsst
-	cTool
+	cToolCall // ⏺ Name(args) — a tool invocation
+	cToolRes  // ⎿ result line under a call
 )
 
 type cLine struct {
@@ -58,15 +64,18 @@ var claudeScenarios = []claudeScenario{
 		history: []cLine{
 			{cHuman, "split the monolith handler into smaller functions"},
 			{cAsst, "I'll extract request parsing and validation first."},
-			{cTool, "Read handler.go (210 lines)"},
-			{cTool, "Updated handler.go (+96 -120)"},
+			{cToolCall, "Read(handler.go)"},
+			{cToolRes, "Read 210 lines (ctrl+o to expand)"},
+			{cToolCall, "Update(handler.go)"},
+			{cToolRes, "Updated handler.go with 96 additions and 120 removals"},
 			{cAsst, "Done - split into parseRequest, validate, and dispatch."},
 		},
 		active: []cLine{
 			{cAsst, "I'll add graceful shutdown so in-flight work can finish."},
-			{cTool, "Read server.go (142 lines)"},
-			{cTool, "Updated server.go (+38 -6)"},
-			{cTool, "Updated main.go (+9 -1)"},
+			{cToolCall, "Update(server.go)"},
+			{cToolRes, "Updated server.go with 38 additions and 6 removals"},
+			{cToolCall, "Bash(go test ./...)"},
+			{cToolRes, "ok — 42 tests passed"},
 			{cAsst, "Done - the server now drains connections on SIGTERM."},
 		},
 	},
@@ -74,15 +83,17 @@ var claudeScenarios = []claudeScenario{
 		history: []cLine{
 			{cHuman, "add retry with backoff to the fetcher"},
 			{cAsst, "I'll wrap the client call in a retry loop."},
-			{cTool, "Read fetch.go (88 lines)"},
-			{cTool, "Updated fetch.go (+41 -7)"},
+			{cToolCall, "Update Todos"},
+			{cToolRes, "TODO_DONE Add retry helper with jitter"},
+			{cToolRes, "TODO_OPEN Make the timeout configurable"},
 			{cAsst, "Done - three attempts with jittered backoff."},
 		},
 		active: []cLine{
 			{cAsst, "I'll make the timeout configurable next."},
-			{cTool, "Read config.go (54 lines)"},
-			{cTool, "Updated config.go (+12 -2)"},
-			{cTool, "Updated fetch.go (+6 -3)"},
+			{cToolCall, "Read(config.go)"},
+			{cToolRes, "Read 54 lines (ctrl+o to expand)"},
+			{cToolCall, "Update(config.go)"},
+			{cToolRes, "Updated config.go with 12 additions and 2 removals"},
 			{cAsst, "Done - FETCH_TIMEOUT now overrides the default."},
 		},
 	},
@@ -90,14 +101,14 @@ var claudeScenarios = []claudeScenario{
 		history: []cLine{
 			{cHuman, "why is the cache test flaky"},
 			{cAsst, "The TTL assertion races the clock; I'll inject a fake timer."},
-			{cTool, "Read cache_test.go (131 lines)"},
-			{cTool, "Updated cache_test.go (+18 -9)"},
+			{cToolCall, "Update(cache_test.go)"},
+			{cToolRes, "Updated cache_test.go with 18 additions and 9 removals"},
 			{cAsst, "Done - the test drives a fake clock now."},
 		},
 		active: []cLine{
 			{cAsst, "I'll run the suite to confirm the flake is gone."},
-			{cTool, "go test ./... (42 tests)"},
-			{cTool, "PASS in 3.1s"},
+			{cToolCall, "Bash(go test ./internal/cache/ -count=20)"},
+			{cToolRes, "ok — 20 runs, no failures"},
 			{cAsst, "All green - want me to check the other suites?"},
 		},
 	},
@@ -106,7 +117,7 @@ var claudeScenarios = []claudeScenario{
 func claudeToolCount(active []cLine) int {
 	n := 0
 	for _, l := range active {
-		if l.kind == cTool {
+		if l.kind == cToolCall {
 			n++
 		}
 	}
@@ -124,6 +135,7 @@ func (t *ClaudeTheme) ResetState(gs *domain.GameState) {
 	// A fresh round picks a scenario and replays its stream from the top.
 	st.tick = 0
 	st.scen = rand.Intn(len(claudeScenarios))
+	st.verb = rand.Intn(len(claudeVerbs))
 }
 
 func (t *ClaudeTheme) OnTick(gs *domain.GameState) {
@@ -210,6 +222,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine, white, orange, faint tcell.Style) {
 	gl := ui.Glyphs()
+	green := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	switch ln.kind {
 	case cHuman:
 		renderer.DrawText(0, y, faint, "> ")
@@ -217,9 +230,18 @@ func (t *ClaudeTheme) drawConvoLine(renderer domain.Renderer, y, w int, ln cLine
 	case cAsst:
 		renderer.DrawText(0, y, orange, gl.AsstDot)
 		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
-	case cTool:
+	case cToolCall:
+		renderer.DrawText(0, y, green, gl.AsstDot)
+		renderer.DrawText(2, y, white, ui.Truncate(ln.text, w-2))
+	case cToolRes:
+		text := ln.text
+		if rest, ok := strings.CutPrefix(text, "TODO_DONE "); ok {
+			text = gl.TodoDone + " " + rest
+		} else if rest, ok := strings.CutPrefix(text, "TODO_OPEN "); ok {
+			text = gl.TodoOpen + " " + rest
+		}
 		renderer.DrawText(2, y, faint, gl.ToolBranch)
-		renderer.DrawText(4, y, faint, ui.Truncate(ln.text, w-4))
+		renderer.DrawText(4, y, faint, ui.Truncate(text, w-4))
 	}
 }
 
@@ -239,10 +261,13 @@ func (t *ClaudeTheme) drawStatus(renderer domain.Renderer, gs *domain.GameState,
 		renderer.DrawText(0, statusRow, green, ui.Truncate(msg, w))
 		return
 	}
-	frame := gl.Spinner[st.tick%len(gl.Spinner)]
+	frame := gl.StarSpinner[st.tick%len(gl.StarSpinner)]
+	verb := claudeVerbs[st.verb%len(claudeVerbs)]
+	head := fmt.Sprintf("%c %s%s ", frame, verb, gl.Ellipsis)
 	tokens := float64(300+st.tick*137) / 1000.0
-	msg := fmt.Sprintf("%c Working%s %ds %s %s %.1fk tokens %s esc to interrupt", frame, gl.Ellipsis, st.tick, gl.Sep, gl.Up, tokens, gl.Sep)
-	renderer.DrawText(0, statusRow, orange, ui.Truncate(msg, w))
+	tail := fmt.Sprintf("(%ds %s %s %.1fk tokens %s esc to interrupt)", st.tick, gl.Sep, gl.Up, tokens, gl.Sep)
+	renderer.DrawText(0, statusRow, orange, ui.Truncate(head, w))
+	renderer.DrawText(runewidth.StringWidth(head), statusRow, faint, ui.Truncate(tail, w-runewidth.StringWidth(head)))
 }
 
 func (t *ClaudeTheme) drawBox(renderer domain.Renderer, top, bottom, w int, style tcell.Style) {
@@ -306,5 +331,10 @@ func (t *ClaudeTheme) drawHint(renderer domain.Renderer, gs *domain.GameState, h
 		renderer.DrawText(0, hintRow, dim, ui.Truncate(result, w))
 		return
 	}
-	renderer.DrawText(0, hintRow, faint, ui.Truncate(gl.Send+" send when complete    esc menu", w))
+	left := "? for shortcuts " + gl.Sep + " esc menu"
+	right := gl.FastFwd + " accept edits on (shift+tab to cycle)"
+	renderer.DrawText(0, hintRow, faint, ui.Truncate(left, w))
+	if lw, rw := runewidth.StringWidth(left), runewidth.StringWidth(right); lw+rw+2 <= w {
+		renderer.DrawText(w-rw, hintRow, faint, right)
+	}
 }
