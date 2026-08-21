@@ -63,7 +63,7 @@ func (t *SimpleTheme) drawResultScreen(renderer domain.Renderer, gs *domain.Game
 		}
 		renderer.DrawText(x, y, style, ui.Truncate(s, w))
 	}
-	center(h/2-1, tcell.StyleDefault.Foreground(tcell.ColorWhite), ui.ResultText(gs))
+	center(h/2-1, tcell.StyleDefault, ui.ResultText(gs))
 	center(h/2+1, tcell.StyleDefault.Foreground(tcell.ColorGray), gl.Send+" next "+gl.Sep+" esc menu")
 }
 

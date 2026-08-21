@@ -71,7 +71,7 @@ func (t *HexTheme) ensureDump(state *HexThemeState, h int) {
 
 func (t *HexTheme) drawHexDump(renderer domain.Renderer, state *HexThemeState, h int) {
 	addrStyle := tcell.StyleDefault.Foreground(tcell.ColorBlue)
-	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	hexStyle := tcell.StyleDefault
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
 
 	for y := 0; y < h && y < len(state.rows); y++ {
@@ -116,7 +116,7 @@ func hexWindow(targetLen, inputLen, availRows int) (winStart, visible int) {
 // coloring the ascii pane with the typed input. It returns the window start
 // row so the cursor can be placed.
 func (t *HexTheme) drawTarget(renderer domain.Renderer, gs *domain.GameState, state *HexThemeState, h int) int {
-	hexStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	hexStyle := tcell.StyleDefault
 	asciiStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	correctStyle := tcell.StyleDefault.Foreground(tcell.ColorGreen)
 	incorrectStyle := tcell.StyleDefault.Foreground(tcell.ColorRed)

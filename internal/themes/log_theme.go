@@ -191,6 +191,6 @@ func getStyleForLogLevel(level string) tcell.Style {
 	case "DEBUG":
 		return tcell.StyleDefault.Foreground(tcell.ColorBlue)
 	default:
-		return tcell.StyleDefault.Foreground(tcell.ColorWhite)
+		return tcell.StyleDefault
 	}
 }

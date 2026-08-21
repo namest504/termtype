@@ -180,7 +180,7 @@ func (t *TutorTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameState
 		if rx < colX {
 			rx = colX
 		}
-		renderer.DrawText(rx, top, tcell.StyleDefault.Foreground(tcell.ColorWhite), result)
+		renderer.DrawText(rx, top, tcell.StyleDefault, result)
 		if showKB {
 			t.drawKeyboard(renderer, (w-kbWidth)/2, kbTop, 0, false, false)
 		}

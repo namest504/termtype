@@ -99,3 +99,65 @@ func TestTypingRenderer_Draw_Padding(t *testing.T) {
 		}
 	}
 }
+
+// TestTypingRenderer_Draw_RespectsTerminalPalette pins the contract that the
+// typing area never forces a fg/bg pair that fights the terminal's own
+// palette. This exercises the CenterText path (used by simple/matrix
+// themes), which used to force a white-on-black untyped style and a
+// colored-on-black correct/incorrect style: untyped runes must now carry
+// plain tcell.StyleDefault (no forced fg/bg so light and dark terminals both
+// stay legible), correct runes must be green-on-default, and incorrect runes
+// must be red-on-default.
+func TestTypingRenderer_Draw_RespectsTerminalPalette(t *testing.T) {
+	width := 40
+	height := 5
+	mockScreen := NewMockScreen(width, height)
+	renderer := NewRenderer(mockScreen)
+
+	tr := &TypingRenderer{}
+	gs := &domain.GameState{
+		TargetSentence: "abcdef",
+		UserInput:      "abX", // 'a','b' correct, 'X' wrong vs 'c', 'd','e','f' untyped
+	}
+
+	opts := TypingRendererOptions{
+		StartY:      0,
+		Width:       width,
+		PrefixWidth: 0,
+		CenterText:  true,
+	}
+
+	tr.Draw(renderer, gs, opts)
+
+	line := gs.TargetSentence
+	startX := (width - len(line)) / 2
+
+	// 'a' -> correct: green fg, no forced background.
+	if _, style := mockScreen.Cell(startX+0, 0); true {
+		fg, bg, _ := style.Decompose()
+		if fg != tcell.ColorLawnGreen {
+			t.Errorf("correct rune: expected lawn green fg, got %v", fg)
+		}
+		if bg != tcell.ColorDefault {
+			t.Errorf("correct rune: expected default (no forced) bg, got %v", bg)
+		}
+	}
+
+	// 'X' typed against 'c' -> incorrect: red fg, no forced background.
+	if _, style := mockScreen.Cell(startX+2, 0); true {
+		fg, bg, _ := style.Decompose()
+		if fg != tcell.ColorRed {
+			t.Errorf("incorrect rune: expected red fg, got %v", fg)
+		}
+		if bg != tcell.ColorDefault {
+			t.Errorf("incorrect rune: expected default (no forced) bg, got %v", bg)
+		}
+	}
+
+	// 'e' -> untyped: default style entirely, terminal palette shows through.
+	if _, style := mockScreen.Cell(startX+4, 0); true {
+		if style != tcell.StyleDefault {
+			t.Errorf("untyped rune: expected tcell.StyleDefault, got %v", style)
+		}
+	}
+}

@@ -180,7 +180,7 @@ func (t *ClaudeTheme) UpdateScreen(renderer domain.Renderer, gs *domain.GameStat
 
 	dim := tcell.StyleDefault.Foreground(tcell.ColorGray)
 	faint := tcell.StyleDefault.Foreground(tcell.ColorDarkGray)
-	white := tcell.StyleDefault.Foreground(tcell.ColorWhite)
+	white := tcell.StyleDefault
 	orange := tcell.StyleDefault.Foreground(tcell.ColorOrange)
 
 	wrapWidth := (w - 1) - claudePromptWidth - 3
